@@ -14,7 +14,7 @@ TODO
 
 2.3 python unit test
 
-2.4 gradle for managing this project.
+2.4 pybuilder for managing this project.
 
 
 3. References
