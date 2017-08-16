@@ -1,4 +1,3 @@
-
 1. Features to be Implemented
 
 1. List Functions Used in Derivation
@@ -150,5 +149,6 @@ class paren:
  		if this.op == 'sin':
 			return pack(inner, '*', pack(expr, 'cos', null))
 		
-				
+# current issue regarding differentiation is contains(x) which whould consider
+#		cannonicalized form
 
