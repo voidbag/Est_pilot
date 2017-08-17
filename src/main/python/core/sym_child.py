@@ -54,17 +54,22 @@ class D(Symbol):
 class Paren(Symbol):
     fn = None
     fn_dict = {} #TODO static variable must be checked...
+    fn_dict['sin'] = math.sin
+    fn_dict['cos'] = math.cos
+    fn_dict['tan'] = math.tan
+    fn_dict['asin'] = math.asin
+    fn_dict['acos'] = math.acos
+    fn_dict['atan'] = math.tan
+    fn_dict['log'] = math.log
+
     def __init__(self):
         Symbol.__init__(self)
-
         self.name = '<paren>'
         self.is_terminal = False
 
     def fill_children_list(self, tokens):
         token = tokens[0]
-        if token == 'sin' or token == 'cos' or token == 'tan' or \
-            token == 'arcsin' or token == 'arccos' or token == 'arctan' or \
-            token == 'log':
+        if token in Paren.fn_dict.keys():
             self.fn = token
             token = tokens.popleft() #pop function!!
             if token != '(':

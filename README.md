@@ -39,6 +39,10 @@
 
 3. References
 
+#TODO function implmentation like log  sin, normal log???
+#TODO test the evaluation
+#TODO Differentiation with multiple
+#TODO descritbe the differentiation of triangular function and log
 3.1 parsing rule
 	
 	symbol.variable
@@ -73,7 +77,9 @@ ex)
 
 class expr:
 	def diff(x)
-		if term.contains(x):
+		#That's because constant can be returned...
+		#This layer must make constant zero!!
+		if term.contains(x) and expr_tail.contains(x)
 			return pack (term.diff(x), expr_tail.op, expr_tail.diff(x))
 		else:
 			return 
@@ -84,6 +90,11 @@ class expr\_tail:
 			return null
 		else:
 			return expr.diff(x)
+
+class term:
+	def diff(x):
+		return high.diff(x)
+
 
 class high:
 	def diff(x):
@@ -137,7 +148,7 @@ class pow_tail:
 
 class paren:
 	def diff(x):
-		if this.D != None:
+		if this.d != None:
 	       		return d
 		inner = expr.diff(x)
  		if this.op == 'sin':
