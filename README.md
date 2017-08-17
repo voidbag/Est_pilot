@@ -43,9 +43,9 @@
 	
 	symbol.variable
 
-	<expr> := <high> <expr-tail>
-	<expr-tail> := '+' <expr-term> | '-' <expr-term> | e
-	<expr-term> := <expr>
+	<expr> := <term> <expr-tail>
+	<expr-tail> := '+' <expr> | '-' <expr> | e
+	<term> := <high>
 	<high> := <pow> <high-tail>
 	<high-tail> := '*' <high> | '/' <high> | e
 	<pow> := <paren> <pow-tail>
@@ -73,23 +73,17 @@ ex)
 
 class expr:
 	def diff(x)
-		if high.contains(x) # we need to modify bnf
-		return pack (high.diff(x), '+', expr_tail.diff(x))
-
+		if term.contains(x):
+			return pack (term.diff(x), expr_tail.op, expr_tail.diff(x))
+		else:
+			return 
 
 class expr\_tail:
 	def diff(x)
 		if e:
 			return null
 		else:
-			return pack(empty, self.op, expr_term.diff(x))
-
-class expr\_term:
-	def diff(x):
-		if expr.contains(x):
 			return expr.diff(x)
-		else:
-		 	return null
 
 class high:
 	def diff(x):

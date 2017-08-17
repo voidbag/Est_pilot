@@ -3,9 +3,10 @@ from abc import ABCMeta, abstractmethod
 from queue import Queue
 
 class Symbol:
-    children_list = []
-    name = ''
-    is_terminal = False
+    def __init__(self):
+        self.children_list = []
+        self.name = ''
+        self.is_terminal = False
 
     @abstractmethod
     def fill_children_list(self, tokens):
@@ -29,15 +30,14 @@ class Symbol:
             elif tokens[0] == ')': # term of dilimiter
                 return
 
-            fill_children_list(tokens)
+            self.fill_children_list(tokens)
 
     def walk(self, depth):
-        line = ' ' * depth
-        
-        line.append('|-- ')
-        line.append(self.name)
-        line.append('\n')
+        line = ' ' * depth * 6
+        line += '|-- '
+        line += str(self.name)
+        line += '\n'
 
         print(line)
-        for child in children_list:
+        for child in self.children_list:
             child.walk(depth + 1)
