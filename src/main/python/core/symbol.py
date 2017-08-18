@@ -28,6 +28,7 @@ class Symbol:
                 self.is_terminal = True
                 return
             elif tokens[0] == ')': # term of dilimiter
+                self.is_terminal = True
                 return
 
             self.fill_children_list(tokens)

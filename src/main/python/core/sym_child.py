@@ -24,11 +24,13 @@ class D(Symbol):
         self.is_terminal = False
 
     def fill_children_list(self, tokens):
-        token = tokens.popleft()
         if len(tokens) <= 0:
             print('err!!')
             sys.exit(0) #throw parsing error
             return
+
+        token = tokens.popleft()
+
         try: #if symbol is number
             sym = float(token)
             self.is_variable = False
@@ -71,8 +73,10 @@ class Paren(Symbol):
         token = tokens[0]
         if token in Paren.fn_dict.keys():
             self.fn = token
-            token = tokens.popleft() #pop function!!
+            tokens.popleft() #pop function!!
+            token = tokens[0]
             if token != '(':
+                print (token)
                 print('function must have parenthesis!!')
                 sys.exit(0)
 
@@ -204,7 +208,7 @@ class Term(Symbol):
         high = High()
         self.children_list.append(high)
         high.parse(tokens)
-    def compute(var_dict):
+    def compute(self, var_dict):
         return self.children_list[0].compute(var_dict)
 
 
@@ -301,7 +305,7 @@ class Expr_tail(Symbol):
             return self.children_list[1].compute(var_dict)
 
 
-string  = '2 * ( 4 + 5 )'
+string  = 'cos ( sin ( x ) )'
 string = string.split(' ')
 root = Expr()
 q = deque()
@@ -310,5 +314,6 @@ for element in string:
 
 root.parse(q)
 root.walk(0)
+print (root.compute({'x': 3.141592, 'k' : 2}))
 
 
