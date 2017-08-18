@@ -45,13 +45,10 @@
 #TODO descritbe the differentiation of triangular function and log
 3.1 parsing rule
 	
-	symbol.variable
-
 	<expr> := <term> <expr-tail>
-	<expr-tail> := '+' <expr> | '-' <expr> | e
-	<term> := <high>
-	<high> := <pow> <high-tail>
-	<high-tail> := '*' <high> | '/' <high> | e
+	<expr-tail> := '+' <term> <expr-tail> | '-' <term> <expr-tail> | e
+	<term> := <pow> <term-tail>
+	<term-tail> := '*' <pow> <term-tail> | '/' <pow> <term-tail> | e
 	<pow> := <paren> <pow-tail>
 	<pow-tail> := '^' <pow> | e	
 	<paren> := {transcendential}( <expr> ) | <D>

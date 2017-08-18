@@ -12,7 +12,7 @@ class Terminal(Symbol):
     def fill_children_list(self, tokens):
         return
 
-    def compute(self, var_dict):
+    def compute(self, var_dict, priv = None):
         return None
 
 class D(Symbol):
@@ -41,7 +41,7 @@ class D(Symbol):
         terminal = Terminal(sym)
         self.children_list.append(terminal)
 
-    def compute(self, var_dict):
+    def compute(self, var_dict, priv = None):
         sym = str(self.children_list[0].name)
         if self.is_variable:
             if sym in var_dict:
@@ -109,7 +109,7 @@ class Paren(Symbol):
             self.children_list.append(d)
             d.parse(tokens)
 
-    def compute(self, var_dict):
+    def compute(self, var_dict, priv = None):
         if self.fn == None:
             if len(self.children_list) == 3:
                 return self.children_list[1].compute(var_dict)
@@ -135,7 +135,7 @@ class Pow(Symbol):
         paren.parse(tokens)
         pow_tail.parse(tokens)
 
-    def compute(self, var_dict):
+    def compute(self, var_dict, priv = None):
         paren = self.children_list[0].compute(var_dict)
         pow_tail = self.children_list[1].compute(var_dict)
         if self.children_list[1].is_terminal:
@@ -163,80 +163,73 @@ class Pow_tail(Symbol):
         terminal.parse(tokens)
         ppow.parse(tokens)
     
-    def compute(self, var_dict):
+    def compute(self, var_dict, priv = None):
         if self.is_terminal == False:
             return self.children_list[1].compute(var_dict)
         else:
             return None
 
-class High(Symbol):
+class Term(Symbol):
     def __init__(self):
         Symbol.__init__(self)
 
-        self.name = '<high>'
+        self.name = '<term>'
         self.is_terminal = False
 
     def fill_children_list(self, tokens):
         ppow = Pow()
-        high_tail = High_tail()
+        term_tail = Term_tail()
         self.children_list.append(ppow)
-        self.children_list.append(high_tail)
+        self.children_list.append(term_tail)
         ppow.parse(tokens)
-        high_tail.parse(tokens)
+        term_tail.parse(tokens)
     
-    def compute(self, var_dict):
-        val_pow = self.children_list[0].compute(var_dict)
-        high_tail = self.children_list[1]
-        val_high_tail = high_tail.compute(var_dict)
-        if self.children_list[1].is_terminal:
-            return val_pow
-        elif high_tail.children_list[0].name == '*':
-            return val_pow * val_high_tail
-        elif high_tail.children_list[0].name == '/':
-            return val_pow / val_high_tail
-        else:
-            print('ERR') #TODO
-            sys.exit(0)
-
-class Term(Symbol):
-    def __init__(self):
-        Symbol.__init__(self)
-        self.is_terminal = False
-        self.name = '<term>'
-    
-    def fill_children_list(self, tokens):
-        high = High()
-        self.children_list.append(high)
-        high.parse(tokens)
-    def compute(self, var_dict):
-        return self.children_list[0].compute(var_dict)
-
-
-class High_tail(Symbol):
+    def compute(self, var_dict, priv = None):
+        ppow = self.children_list[0]
+        term_tail = self.children_list[1]
+        return term_tail.compute(var_dict, ppow.compute(var_dict))
+       
+class Term_tail(Symbol):
     def __init__(self):
         Symbol.__init__(self)
 
-        self.name = '<high-tail>'
+        self.name = '<term-tail>'
         self.is_terminal = False
 
     def fill_children_list(self, tokens):
         if len(tokens) == 0 or (tokens[0] != '*' and tokens[0] != '/'):
             self.is_terminal = True
             return
-        
+       
         terminal = Terminal(tokens.popleft())
-        high = High()
+        ppow = Pow()
+        term_tail = Term_tail()
+        
         self.children_list.append(terminal)
-        self.children_list.append(high)
+        self.children_list.append(ppow)
+        self.children_list.append(term_tail)
 
         terminal.parse(tokens)
-        high.parse(tokens)
+        ppow.parse(tokens)
+        term_tail.parse(tokens)
  
-    def compute(self, var_dict):
+    def compute(self, var_dict, priv = None):
         if self.is_terminal == True:
-            return None
+            return priv
+
+        if priv == None:
+           print('Term_tail must have priv argument filled!')
+           sys.exit(0) #TODO throw exception
+
+        op = self.children_list[0].name
+        ppow = self.children_list[1]
+        term_tail = self.children_list[2]
+        val_pow = ppow.compute(var_dict)
+
+        if op == '*':
+            return term_tail.compute(var_dict, priv * val_pow)
         else:
-            return self.children_list[1].compute(var_dict)
+            return term_tail.compute(var_dict, priv / val_pow)
 
 class Expr(Symbol):
     def __init__(self):
@@ -259,23 +252,14 @@ class Expr(Symbol):
         term.parse(tokens)
         expr_tail.parse(tokens)
      
-    def compute(self, var_dict):
+    def compute(self, var_dict, priv = None):
         if self.is_terminal == True:
             return None
 
-        val_term = self.children_list[0].compute(var_dict)
+        term = self.children_list[0]
         expr_tail = self.children_list[1]
-        val_expr_tail = expr_tail.compute(var_dict)
 
-        if expr_tail.is_terminal == True:
-            return val_term
-        elif expr_tail.children_list[0].name == '+':
-            return val_term + val_expr_tail
-        elif expr_tail.children_list[0].name == '-':
-            return val_term - val_expr_tail
-        else:
-            print('Err')
-            sys.exit(0)
+        return expr_tail.compute(var_dict, term.compute(var_dict))
 
 
 class Expr_tail(Symbol):
@@ -286,26 +270,42 @@ class Expr_tail(Symbol):
         self.name = '<expr-tail>'
 
     def fill_children_list(self, tokens):
-        if len(tokens) == 0 or (tokens[0] != '+' and tokens[0] == '-'):
+        if len(tokens) == 0 or (tokens[0] != '+' and tokens[0] != '-'):
                 self.is_terminal = True
                 return
+
         terminal = Terminal(tokens.popleft())
-        expr = Expr()
-        
+        term = Term()
+        expr_tail = Expr_tail() 
+
         self.children_list.append(terminal)
-        self.children_list.append(expr)
+        self.children_list.append(term)
+        self.children_list.append(expr_tail)
 
         terminal.parse(tokens)
-        expr.parse(tokens)
+        term.parse(tokens)
+        expr_tail.parse(tokens)
 
-    def compute(self, var_dict):
+    def compute(self, var_dict, priv = None):
         if self.is_terminal == True:
-            return None
-        else:
-            return self.children_list[1].compute(var_dict)
+            return priv
 
+        if priv == None:
+            print('Expr_tail must have priv argument filled!')
+            sys.exit(0) #TODO throw exception
 
-string  = 'cos ( sin ( x ) )'
+        op = self.children_list[0].name
+        term = self.children_list[1]
+        expr_tail = self.children_list[2]
+        val_term = term.compute(var_dict)
+
+        if op == '+':
+            return expr_tail.compute(var_dict, priv + val_term)
+        else: # op == '-'
+            return expr_tail.compute(var_dict, priv - val_term) 
+
+string  = '5 * 5 / 6 ^ 2 / 7'
+string = '3 ^ 2 * 3 / 2 ^ 3'
 string = string.split(' ')
 root = Expr()
 q = deque()
@@ -314,6 +314,6 @@ for element in string:
 
 root.parse(q)
 root.walk(0)
-print (root.compute({'x': 3.141592, 'k' : 2}))
+print (root.compute({'x': 2, 'k' : 2, 'pi' : math.pi, 'e' : math.e}))
 
 

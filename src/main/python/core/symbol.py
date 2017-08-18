@@ -14,7 +14,7 @@ class Symbol:
 
 
     @abstractmethod
-    def compute(self, var_dict):
+    def compute(self, var_dict, priv = None):
         #must return value of double
         pass
 
