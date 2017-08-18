@@ -78,25 +78,24 @@ class expr:
 		#This layer must make constant zero!!
 		if term.contains(x) and expr_tail.contains(x)
 			return pack (term.diff(x), expr_tail.op, expr_tail.diff(x))
+		elif term.contains(x) and !expr_tail.contains(x)
+			return term.diff(x)
+		elif !term.contains(x) and expr_tail.contains(x)
+			return expr_tail.diff(x) 
 		else:
-			return 
+			return None
 
 class expr\_tail:
 	def diff(x)
 		if e:
-			return null
+			return None
 		else:
 			return expr.diff(x)
 
 class term:
 	def diff(x):
-		return high.diff(x)
-
-
-class high:
-	def diff(x):
 		if e:
-			return null
+			return None
 		else:
 			l_diff = pow.expr.diff(x)
 			r_diff = high_tail.expr.diff(x)

@@ -304,8 +304,10 @@ class Expr_tail(Symbol):
         else: # op == '-'
             return expr_tail.compute(var_dict, priv - val_term) 
 
+
 string  = '5 * 5 / 6 ^ 2 / 7'
 string = '3 ^ 2 * 3 / 2 ^ 3'
+string = '4 ^ 3 ^ 2'
 string = string.split(' ')
 root = Expr()
 q = deque()

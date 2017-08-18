@@ -7,6 +7,11 @@ class Symbol:
         self.children_list = []
         self.name = ''
         self.is_terminal = False
+        self.dp_table = {}
+        '''
+            x: True
+            y: False
+        '''
 
     @abstractmethod
     def fill_children_list(self, tokens):
