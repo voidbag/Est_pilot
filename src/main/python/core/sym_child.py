@@ -184,11 +184,15 @@ class Paren(Symbol):
     def compute(self, var_dict, priv = None):
         if self.fn == None:
             if len(self.children_list) == 3:
-                return self.children_list[1].compute(var_dict)
+                expr = self.children_list[1]
+                return expr.compute(var_dict)
             else:
-                return self.children_list[0].compute(var_dict)
+                d = self.children_list[0]
+                return d.compute(var_dict)
         else:
-            return Paren.fn_dict[self.fn](self.children_list[1].compute(var_dict))
+            fn = Paren.fn_dict[self.fn]
+            expr = self.children_list[1]
+            return fn(expr.compute(var_dict))
           #TODO compute according to functions  
 
     def diff(self, var_dict, priv = None):
@@ -234,12 +238,12 @@ class Pow(Symbol):
         pow_tail.parse(tokens)
 
     def compute(self, var_dict, priv = None):
-        paren = self.children_list[0].compute(var_dict)
-        pow_tail = self.children_list[1].compute(var_dict)
-        if self.children_list[1].is_terminal:
-            return paren
+        paren = self.children_list[0]
+        pow_tail = self.children_list[1]
+        if pow_tail.is_terminal:
+            return paren.compute(var_dict)
         
-        return pow(paren, pow_tail)
+        return pow(paren.compute(var_dict), pow_tail.compute(var_dict))
 
     def diff (self, var_dict, priv = None):
         paren = self.children_list[0]
@@ -268,10 +272,11 @@ class Pow_tail(Symbol):
         ppow.parse(tokens)
     
     def compute(self, var_dict, priv = None):
-        if self.is_terminal == False:
-            return self.children_list[1].compute(var_dict)
-        else:
+        if self.is_terminal == True:
             return None
+        else:
+            ppow = self.children_list[1]
+            return ppow.compute(var_dict)
 
     def diff(self, var_dict, priv = None):
         base = priv #paren..
@@ -395,6 +400,7 @@ class Term_tail(Symbol):
             return term_tail.compute(var_dict, priv * val_pow)
         else:
             return term_tail.compute(var_dict, priv / val_pow)
+
 
     def diff(self, var_dict, priv = None):
         ppow = priv
