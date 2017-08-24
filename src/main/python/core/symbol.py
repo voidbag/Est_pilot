@@ -3,11 +3,12 @@ from abc import ABCMeta, abstractmethod
 from queue import Queue
 
 class Symbol:
-    def __init__(self):
+    def __init__(self, parent):
         self.children_list = []
         self.name = ''
         self.is_terminal = False
         self.vars = {} #for differentiation
+        self.parent = parent
         '''
             x: True
             y: False
@@ -42,15 +43,16 @@ class Symbol:
     def do_copy():
         pass
 
-    def copy(self):
+    def copy(self, parent):
         instance = self.do_copy()
         instance.name = self.name
         instance.is_terminal = self.is_terminal
+        instance.parent = parent
         for var in self.vars:
             instance.vars[var] = self.vars[var]
 
         for ele in self.children_list:
-            instance.children_list.append(ele.copy())
+            instance.children_list.append(ele.copy(instance))
 
         return instance
 

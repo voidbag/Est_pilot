@@ -4,8 +4,8 @@ import math
 import sys
 
 class Terminal(Symbol):
-    def __init__(self, name):
-        Symbol.__init__(self)
+    def __init__(self, name, parent = None):
+        Symbol.__init__(self, parent = None)
         self.is_terminal = True
         self.name = name
 
@@ -24,8 +24,8 @@ class Terminal(Symbol):
 
 class D(Symbol):
     is_variable = False
-    def __init__(self):
-        Symbol.__init__(self)
+    def __init__(self, parent = None):
+        Symbol.__init__(self, parent = None)
 
         self.name = '<D>'
         self.is_terminal = False
@@ -46,7 +46,7 @@ class D(Symbol):
             self.is_variable = True
             self.vars[sym] = True
 
-        terminal = Terminal(sym)
+        terminal = Terminal(sym, self)
         self.children_list.append(terminal)
 
     def compute(self, var_dict, priv = None):
@@ -119,8 +119,8 @@ class Paren(Symbol):
     diff_dict['ln'] = Derivative.diff_ln
 
 
-    def __init__(self):
-        Symbol.__init__(self)
+    def __init__(self, parent = None):
+        Symbol.__init__(self, parent = None)
         self.name = '<paren>'
         self.is_terminal = False
         self.fn = None
@@ -142,9 +142,9 @@ class Paren(Symbol):
                 sys.exit(0)
 
         if token == '(':
-            expr = Expr()
-            left = Terminal('(')
-            right = Terminal(')')
+            expr = Expr(self)
+            left = Terminal('(', self)
+            right = Terminal(')', self)
             tokens.popleft()
             self.children_list.append(left)
             self.children_list.append(expr)
@@ -166,7 +166,7 @@ class Paren(Symbol):
             return
 
         else:
-            d = D()
+            d = D(self)
             self.children_list.append(d)
             d.parse(tokens)
 
@@ -212,8 +212,8 @@ class Paren(Symbol):
         return ret
 
 class Pow(Symbol):
-    def __init__(self):
-        Symbol.__init__(self)
+    def __init__(self, parent = None):
+        Symbol.__init__(self, parent = None)
 
         self.name = '<pow>'
         self.is_terminal = False
@@ -223,7 +223,7 @@ class Pow(Symbol):
         return instance
 
     def fill_children_list(self, tokens):
-        paren = Paren()
+        paren = Paren(self)
         pow_tail = Pow_tail()
         self.children_list.append(paren)
         self.children_list.append(pow_tail)
@@ -245,8 +245,8 @@ class Pow(Symbol):
         return pow_tail.diff(var_dict, paren)
 
 class Pow_tail(Symbol):
-    def __init__(self):
-        Symbol.__init__(self)
+    def __init__(self, parent = None):
+        Symbol.__init__(self, parent = None)
 
         self.name = '<pow-tail>'
         self.is_terminal = False
@@ -260,8 +260,8 @@ class Pow_tail(Symbol):
             self.is_terminal = True
             return
 
-        terminal = Terminal(tokens.popleft())
-        ppow = Pow()
+        terminal = Terminal(tokens.popleft(), self)
+        ppow = Pow(self)
         self.children_list.append(terminal)
         self.children_list.append(ppow)
 
@@ -331,8 +331,8 @@ class Pow_tail(Symbol):
 
 
 class Term(Symbol):
-    def __init__(self):
-        Symbol.__init__(self)
+    def __init__(self, parent = None):
+        Symbol.__init__(self, parent = None)
 
         self.name = '<term>'
         self.is_terminal = False
@@ -342,8 +342,8 @@ class Term(Symbol):
         return instance
 
     def fill_children_list(self, tokens):
-        ppow = Pow()
-        term_tail = Term_tail()
+        ppow = Pow(self)
+        term_tail = Term_tail(self)
         self.children_list.append(ppow)
         self.children_list.append(term_tail)
         ppow.parse(tokens)
@@ -361,8 +361,8 @@ class Term(Symbol):
         return term_tail.diff(var_dict, ppow)
        
 class Term_tail(Symbol):
-    def __init__(self):
-        Symbol.__init__(self)
+    def __init__(self, parent = None):
+        Symbol.__init__(self, parent = None)
 
         self.name = '<term-tail>'
         self.is_terminal = False
@@ -376,9 +376,9 @@ class Term_tail(Symbol):
             self.is_terminal = True
             return
        
-        terminal = Terminal(tokens.popleft())
-        ppow = Pow()
-        term_tail = Term_tail()
+        terminal = Terminal(tokens.popleft(), self)
+        ppow = Pow(self)
+        term_tail = Term_tail(self)
         
         self.children_list.append(terminal)
         self.children_list.append(ppow)
@@ -460,8 +460,8 @@ class Term_tail(Symbol):
         return ret
 
 class Expr(Symbol):
-    def __init__(self):
-        Symbol.__init__(self)
+    def __init__(self, parent = None):
+        Symbol.__init__(self, parent = None)
 
         self.is_terminal = False
         self.name = '<expr>'
@@ -475,8 +475,8 @@ class Expr(Symbol):
             self.is_terminal = True
             return
 
-        term = Term()
-        expr_tail = Expr_tail()
+        term = Term(self)
+        expr_tail = Expr_tail(self)
         
         self.children_list.append(term)
         self.children_list.append(expr_tail)
@@ -500,8 +500,8 @@ class Expr(Symbol):
 
 
 class Expr_tail(Symbol):
-    def __init__(self):
-        Symbol.__init__(self)
+    def __init__(self, parent = None):
+        Symbol.__init__(self, parent = None)
 
         self.is_terminal = False
         self.name = '<expr-tail>'
@@ -515,9 +515,9 @@ class Expr_tail(Symbol):
                 self.is_terminal = True
                 return
 
-        terminal = Terminal(tokens.popleft())
-        term = Term()
-        expr_tail = Expr_tail() 
+        terminal = Terminal(tokens.popleft(), self)
+        term = Term(self)
+        expr_tail = Expr_tail(self) 
 
         self.children_list.append(terminal)
         self.children_list.append(term)
