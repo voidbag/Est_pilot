@@ -38,6 +38,22 @@ class Symbol:
     def tostring():
         pass
 
+    @abstractmethod
+    def do_copy():
+        pass
+
+    def copy(self):
+        instance = self.do_copy()
+        instance.name = self.name
+        instance.is_terminal = self.is_terminal
+        for var in self.vars:
+            instance.vars[var] = self.vars[var]
+
+        for ele in self.children_list:
+            instance.children_list.append(ele.copy())
+
+        return instance
+
     def tostring(self):
         ret = ''
 

@@ -18,6 +18,10 @@ class Terminal(Symbol):
     def tostring(self):
         return str(self.name)
 
+    def do_copy(self):
+        return Terminal(self.name)
+
+
 class D(Symbol):
     is_variable = False
     def __init__(self):
@@ -60,6 +64,13 @@ class D(Symbol):
         if (self.contains(var_dict)):
             return '1'
         return '0'
+
+    def do_copy(self):
+        instance = D()
+        instance.is_variable = self.is_variable
+        return instance
+
+
 class Derivative:
     @classmethod
     def diff_sin(cls, expr):
@@ -108,38 +119,16 @@ class Paren(Symbol):
     diff_dict['ln'] = Derivative.diff_ln
 
 
-    @classmethod
-    def diff_sin(cls, expr):
-        return 'cos ( ' + expr + ' )'
-
-    @classmethod
-    def diff_cos(cls, expr):
-        return '-1 * sin ( ' + expr + ' )'
-    @classmethod
-    def diff_tan(cls, expr):
-        return '1 / cos ( ' + expr  + ' ) ^ 2'
-    
-    @classmethod
-    def diff_asin(cls, expr):
-        return '1 / ( 1 - ( ' + expr + ' ) ^ 2 ) ^ ( 1 / 2 )' #expr != +-1
-
-    @classmethod
-    def diff_acos(cls, expr):
-        return '-1 / ( 1 - ( ' + expr + ' ) ^ 2 ) ^ ( 1 / 2 )' #expr != +-1
-
-    @classmethod
-    def diff_atan(cls, expr):
-        return '1 / ( 1 - ( ' + expr + ' ) ^ 2 )' #expr != +-i
-
-    @classmethod
-    def diff_ln(cls, expr):
-        return '1 / ' +  expr
-
     def __init__(self):
         Symbol.__init__(self)
         self.name = '<paren>'
         self.is_terminal = False
         self.fn = None
+
+    def do_copy(self):
+        instance = Paren()
+        instance.fn = self.fn
+        return instance
 
     def fill_children_list(self, tokens):
         token = tokens[0]
@@ -229,6 +218,10 @@ class Pow(Symbol):
         self.name = '<pow>'
         self.is_terminal = False
 
+    def do_copy(self):
+        instance = Pow()
+        return instance
+
     def fill_children_list(self, tokens):
         paren = Paren()
         pow_tail = Pow_tail()
@@ -257,6 +250,10 @@ class Pow_tail(Symbol):
 
         self.name = '<pow-tail>'
         self.is_terminal = False
+
+    def do_copy(self):
+        instance = Pow_tail()
+        return instance
     
     def fill_children_list(self, tokens):
         if len(tokens) == 0 or tokens[0] != '^':
@@ -340,6 +337,10 @@ class Term(Symbol):
         self.name = '<term>'
         self.is_terminal = False
 
+    def do_copy(self):
+        instance = Term()
+        return instance
+
     def fill_children_list(self, tokens):
         ppow = Pow()
         term_tail = Term_tail()
@@ -365,6 +366,10 @@ class Term_tail(Symbol):
 
         self.name = '<term-tail>'
         self.is_terminal = False
+
+    def do_copy(self):
+        instance = Term_tail()
+        return instance
 
     def fill_children_list(self, tokens):
         if len(tokens) == 0 or (tokens[0] != '*' and tokens[0] != '/'):
@@ -461,6 +466,10 @@ class Expr(Symbol):
         self.is_terminal = False
         self.name = '<expr>'
 
+    def do_copy(self):
+        instance = Expr()
+        return instance
+
     def fill_children_list(self, tokens):
         if len(tokens) == 0:
             self.is_terminal = True
@@ -496,6 +505,10 @@ class Expr_tail(Symbol):
 
         self.is_terminal = False
         self.name = '<expr-tail>'
+
+    def do_copy(self):
+        instance = Expr_tail()
+        return instance
 
     def fill_children_list(self, tokens):
         if len(tokens) == 0 or (tokens[0] != '+' and tokens[0] != '-'):
@@ -579,5 +592,6 @@ print (root.tostring())
 diff_dict = {'x': True}
 
 print('derivative: ' + root.diff(diff_dict))
-
-
+copied = root.copy()
+copied.walk(0)
+print('copy: ' + copied.tostring())
