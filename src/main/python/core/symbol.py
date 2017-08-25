@@ -9,6 +9,7 @@ class Symbol:
         self.is_terminal = False
         self.vars = {} #for differentiation
         self.parent = parent
+        self.cache = {}
         '''
             x: True
             y: False
@@ -42,7 +43,31 @@ class Symbol:
     @abstractmethod
     def do_copy():
         pass
+    
+    @abstractmethod
+    def delete():
+        pass
 
+    def tostring_local(self):
+        key = 'tostring'
+        if key in self.cache:
+            return self.cache[key]
+        
+        val = self.tostring()
+        self.cache[key] = val
+        return val
+        
+    def update_vars(self, is_recursive = False):
+        self.vars = {}
+        for child in self.children_list:
+            self.vars.update(child.vars)
+
+        if is_recursive:
+            if self.parent is not None:
+                self.parent.update_vars(recursive)
+
+
+    #TODO taill...
     def copy(self, parent):
         instance = self.do_copy()
         instance.name = self.name
@@ -75,6 +100,8 @@ class Symbol:
                 return True
         return False
 
+    #it returns the result of  fill_chilren_list
+    #Wrapper of fill_children_list..
     def parse(self, tokens):
         if type(tokens) is not deque:
             print('Tokens is not deque!!')
@@ -87,11 +114,11 @@ class Symbol:
                 self.is_terminal = True
                 return
 
-            self.fill_children_list(tokens)
+            ret = self.fill_children_list(tokens)
             for child in self.children_list:
-                for k in child.vars:
-                    self.vars[k] = True
+                self.vars.update(child.vars)
 
+            return ret
 
     def walk(self, depth):
         line = ' ' * depth * 6

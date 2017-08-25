@@ -20,8 +20,7 @@ class Terminal(Symbol):
 
     def do_copy(self):
         return Terminal(self.name)
-
-
+    
 class D(Symbol):
     is_variable = False
     def __init__(self, parent = None):
@@ -69,6 +68,10 @@ class D(Symbol):
         instance = D()
         instance.is_variable = self.is_variable
         return instance
+
+    def delete(self):
+        paren = self.parent
+        paren.delete()
 
 
 class Derivative:
@@ -162,7 +165,6 @@ class Paren(Symbol):
                 sys.exit(0)
             self.children_list.append(right)
             right.parse(tokens)
-
             return
 
         else:
@@ -210,6 +212,11 @@ class Paren(Symbol):
             else:
                 ret += ' ' + child.tostring()
         return ret
+    
+    def delete(self):
+        ppow = self.parent
+        pow_tail = ppow.children_list[1]
+
 
 class Pow(Symbol):
     def __init__(self, parent = None):
@@ -336,6 +343,7 @@ class Term(Symbol):
 
         self.name = '<term>'
         self.is_terminal = False
+        self.tail = None #this is for modification of tree
 
     def do_copy(self):
         instance = Term()
@@ -347,7 +355,7 @@ class Term(Symbol):
         self.children_list.append(ppow)
         self.children_list.append(term_tail)
         ppow.parse(tokens)
-        term_tail.parse(tokens)
+        self.tail = term_tail.parse(tokens)
     
     def compute(self, var_dict, priv = None):
         ppow = self.children_list[0]
@@ -359,11 +367,105 @@ class Term(Symbol):
         term_tail = self.children_list[1]
 
         return term_tail.diff(var_dict, ppow)
+    
+    def sort(self):
+        ppow = self.children_list[0]
+        first = Term_tail()
+        first.parent = self
+        first.is_terminal = False
+        first.children_list.append(Terminal('*'))
+        first.children_list.append(ppow)
+        first.children_list.append(None)
+        pow_list = []
+        pow_list.append(first)
+
+        # collect all factors in this term into pow_list
+        cur = self.children_list[1]
+        while cur.is_terminal == False:
+            pow_list.append(cur)
+            cur = cur.children_list[2]
+
+        #O(n) where n is the number of pows
+        pow_list.sort(key=lambda term_tail:\
+                term_tail.children_list[1].tostring_local())
+
+        first_op = pow_list[0].children_list[0].name
+        is_removed = False
+        if first_op  == '/':
+            ppow = Pow()
+            q = deque()
+            q.append('1')
+            ppow.parse(q)
+        else:
+            is_removed = True
+            ppow = pow_list[0].children_list[1] #ppow
+
+        
+        ppow.parent = self
+        self.children_list[0] = ppow
+
+        term_tail = Term_tail()
+        term_tail.is_terminal = True
+        self.tail = term_tail
+
+        if len(pow_list) < 2 and is_removed == True:
+            term_tail.parent = self
+            self.children_list[1] = term_tail
+            return
+
+        start = 0
+        if is_removed == True:
+            start = 1
+
+        last = pow_list[len(pow_list) - 1]
+        term_tail.parent = last
+        last.children_list[2] = term_tail
+        last.update_vars()
+        cur = last
+
+        for i in reversed(range(start, len(pow_list) - 1)):
+            cur = pow_list[i]
+            cur.children_list[2] = last
+            last.parent = cur
+            cur.update_vars()
+            last = cur
+
+        cur.parent = self
+        self.children_list[1] = cur
+        self.update_vars()
+
+    #this method is for tail field...
+    def copy(self, parent):
+        instance = self.do_copy()
+        instance.name = self.name
+        instance.is_terminal = self.is_terminal
+        instance.parent = parent
+        instance.children_list.append(self.children_list[0].copy(instance))
+
+        cur = self.children_list[1]
+        cur_clone = instance
+        while cur.is_terminal == False:
+            cur_clone = cur.do_copy()
+            tmp.parent = clone
+            clone = tmp
+            clone.name = cur.name
+            clone.is_terminal = cur.is_terminal
+
+            clone.children_list.append(cur.children_list[0].copy(clone))
+            
+            cur.children_list[0].copy()
+             
+            cur = cur.children_list[1]
+        
+        instance.tail = cur
+        return instance
+
+
+
        
 class Term_tail(Symbol):
     def __init__(self, parent = None):
         Symbol.__init__(self, parent = None)
-
         self.name = '<term-tail>'
         self.is_terminal = False
 
@@ -374,11 +476,11 @@ class Term_tail(Symbol):
     def fill_children_list(self, tokens):
         if len(tokens) == 0 or (tokens[0] != '*' and tokens[0] != '/'):
             self.is_terminal = True
-            return
+            return self
        
         terminal = Terminal(tokens.popleft(), self)
         ppow = Pow(self)
-        term_tail = Term_tail(self)
+        term_tail = Term_tail(self) #pass this object as parent
         
         self.children_list.append(terminal)
         self.children_list.append(ppow)
@@ -386,7 +488,7 @@ class Term_tail(Symbol):
 
         terminal.parse(tokens)
         ppow.parse(tokens)
-        term_tail.parse(tokens)
+        return term_tail.parse(tokens)
  
     def compute(self, var_dict, priv = None):
         if self.is_terminal == True:
@@ -465,6 +567,7 @@ class Expr(Symbol):
 
         self.is_terminal = False
         self.name = '<expr>'
+        self.tail = None #For modification of tree
 
     def do_copy(self):
         instance = Expr()
@@ -482,7 +585,7 @@ class Expr(Symbol):
         self.children_list.append(expr_tail)
         
         term.parse(tokens)
-        expr_tail.parse(tokens)
+        self.tail = expr_tail.parse(tokens)
      
     def compute(self, var_dict, priv = None):
         if self.is_terminal == True:
@@ -498,6 +601,79 @@ class Expr(Symbol):
         expr_tail = self.children_list[1]
         return expr_tail.diff(var_dict, term)
 
+    def canonicalize(self):
+
+        expr_tail = Expr_tail()
+        expr_tail.children_list[0] = '+'
+        expr_tail.children_list[1] = self.term
+        expr_tail.vars.update(self.term.vars)
+        expr_tail.parent = self
+
+    #TODO remove redundant codes..
+    def sort(self):
+        term = self.children_list[0]
+        first = Expr_tail() #dummy
+        first.parent = self
+        first.is_terminal = False
+        first.children_list.append(Terminal('+'))
+        first.children_list.append(term)
+        first.children_list.append(None)
+        term_list = []
+        term_list.append(first)
+
+        # collect all factors in this term into term_list
+        cur = self.children_list[1]
+        while cur.is_terminal == False:
+            term_list.append(cur)
+            cur = cur.children_list[2]
+
+        #O(n) where n is the number of terms
+        term_list.sort(key=lambda expr_tail:\
+                expr_tail.children_list[1].tostring_local())
+
+        first_op = term_list[0].children_list[0].name
+        is_removed = False
+        if first_op  == '-':
+            term = Term()
+            q = deque()
+            q.append('0')
+            term.parse(q)
+        else:
+            is_removed = True
+            term = term_list[0].children_list[1] #term 
+ 
+        term.parent = self
+        self.children_list[0] = term
+
+        expr_tail = Expr_tail()
+        expr_tail.is_terminal = True
+        self.tail = expr_tail
+
+        if len(term_list) < 2 and is_removed == True:
+            expr_tail.parent = self
+            self.children_list[1] = expr_tail
+            return
+
+        start = 0
+        if is_removed == True:
+            start = 1
+
+        last = term_list[len(term_list) - 1]
+        expr_tail.parent = last
+        last.children_list[2] = expr_tail
+        last.update_vars()
+        cur = last
+
+        for i in reversed(range(start, len(term_list) - 1)):
+            cur = term_list[i]
+            cur.children_list[2] = last
+            last.parent = cur
+            cur.update_vars()
+            last = cur
+
+        cur.parent = self
+        self.children_list[1] = cur
+        self.update_vars()
 
 class Expr_tail(Symbol):
     def __init__(self, parent = None):
@@ -513,7 +689,7 @@ class Expr_tail(Symbol):
     def fill_children_list(self, tokens):
         if len(tokens) == 0 or (tokens[0] != '+' and tokens[0] != '-'):
                 self.is_terminal = True
-                return
+                return self
 
         terminal = Terminal(tokens.popleft(), self)
         term = Term(self)
@@ -525,7 +701,7 @@ class Expr_tail(Symbol):
 
         terminal.parse(tokens)
         term.parse(tokens)
-        expr_tail.parse(tokens)
+        return expr_tail.parse(tokens)
 
     def compute(self, var_dict, priv = None):
         if self.is_terminal == True:
@@ -572,7 +748,9 @@ class Expr_tail(Symbol):
 
 string  = '5 * 5 / 6 ^ 2 / 7'
 string = '3 ^ 2 * 3 / 2 ^ 3'
-string = 'sin ( x )'
+#string = 'c / b * a'
+string = 'c + b - a'
+
 #string = '1 - x'
 
 #string = 'x + 1'
@@ -585,13 +763,19 @@ for element in string:
    q.append(element) 
 
 root.parse(q)
+root.sort()
+#kroot.children_list[0].sort()
 root.walk(0)
-print (root.compute({'x': 2, 'y' : 2, 'pi' : math.pi, 'e' : math.e}))
+#sys.exit(0)
+
+#print (root.compute({'x': 2, 'y' : 2, 'pi' : math.pi, 'e' : math.e}))
 print (root.tostring())
 
 diff_dict = {'x': True}
 
 print('derivative: ' + root.diff(diff_dict))
-copied = root.copy()
+copied = root.copy(None)
 copied.walk(0)
 print('copy: ' + copied.tostring())
+
+
