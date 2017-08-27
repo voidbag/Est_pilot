@@ -3,6 +3,44 @@ from symbol import Symbol
 import math
 import sys
 
+#This class make term or expr object have tail
+class Commutable(Symbol):
+    def __init__(self, name, parent = None):
+        Symbol.__init__(self, parent = None)
+        self.tail = None
+
+    def copy(self, parent):
+        #initiate the term or expr object
+        instance = self.do_copy()
+        instance.name = self.name
+        instance.is_terminal = self.is_terminal
+        instance.parent = parent
+        instance.children_list.append(self.children_list[0].copy(instance))
+
+        #initiate the term_tail or expr_tail object
+        cur = self.children_list[1]
+        parent = instance
+
+        while True:
+            clone = cur.do_copy()
+            clone.name = cur.name #shoud be immutable variable..
+            clone.is_terminal = cur.is_terminal
+            clone.parent = parent
+
+            if cur.is_terminal == True:
+                break
+           
+            #operator
+            clone.children_list.append(cur.children_list[0].copy(clone))
+            #pow or term object
+            clone.children_list.append(cur.children_list[1].copy(clone))
+            cur = cur.children_list[2] #next pointer...
+            parent = clone
+       
+        instance.tail = clone
+        return instance
+
+
 class Terminal(Symbol):
     def __init__(self, name, parent = None):
         Symbol.__init__(self, parent = None)
@@ -337,13 +375,11 @@ class Pow_tail(Symbol):
         return ret
 
 
-class Term(Symbol):
+class Term(Commutable):
     def __init__(self, parent = None):
-        Symbol.__init__(self, parent = None)
-
+        Commutable.__init__(self, parent = None)
         self.name = '<term>'
         self.is_terminal = False
-        self.tail = None #this is for modification of tree
 
     def do_copy(self):
         instance = Term()
@@ -432,37 +468,8 @@ class Term(Symbol):
 
         cur.parent = self
         self.children_list[1] = cur
-        self.update_vars()
+        self.update_vars()      
 
-    #this method is for tail field...
-    def copy(self, parent):
-        instance = self.do_copy()
-        instance.name = self.name
-        instance.is_terminal = self.is_terminal
-        instance.parent = parent
-        instance.children_list.append(self.children_list[0].copy(instance))
-
-        cur = self.children_list[1]
-        cur_clone = instance
-        while cur.is_terminal == False:
-            cur_clone = cur.do_copy()
-            tmp.parent = clone
-            clone = tmp
-            clone.name = cur.name
-            clone.is_terminal = cur.is_terminal
-
-            clone.children_list.append(cur.children_list[0].copy(clone))
-            
-            cur.children_list[0].copy()
-             
-            cur = cur.children_list[1]
-        
-        instance.tail = cur
-        return instance
-
-
-
-       
 class Term_tail(Symbol):
     def __init__(self, parent = None):
         Symbol.__init__(self, parent = None)
@@ -561,13 +568,12 @@ class Term_tail(Symbol):
                     ret = ''
         return ret
 
-class Expr(Symbol):
+class Expr(Commutable):
     def __init__(self, parent = None):
-        Symbol.__init__(self, parent = None)
+        Commutable.__init__(self, parent = None)
 
         self.is_terminal = False
         self.name = '<expr>'
-        self.tail = None #For modification of tree
 
     def do_copy(self):
         instance = Expr()
