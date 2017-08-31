@@ -14,13 +14,21 @@ class Symbol:
             x: True
             y: False
         '''
+    
+    @abstractmethod
+    def is_num(self):
+        pass
+    
+    @abstractmethod
+    def canonicalize(self, parent = None, skip = 0):
+        pass
 
     @abstractmethod
     def fill_children_list(self, tokens):
         pass
 
     @abstractmethod
-    def compute(self, var_dict, priv = None):
+    def compute(self, var_dict = {'pi' : math.pi, 'e' : math.e}, priv = None):
         #must return value of double
         pass
 
@@ -46,6 +54,10 @@ class Symbol:
     
     @abstractmethod
     def delete():
+        pass
+
+    @abstractmethod
+    def pow(self, operand, parent):
         pass
 
     def tostring_local(self):

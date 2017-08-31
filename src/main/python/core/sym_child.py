@@ -2,6 +2,7 @@ from collections import deque
 from symbol import Symbol
 import math
 import sys
+from heapq import heappush, heappop
 
 #This class make term or expr object have tail
 class Commutable(Symbol):
@@ -50,7 +51,7 @@ class Terminal(Symbol):
     def fill_children_list(self, tokens):
         return
 
-    def compute(self, var_dict, priv = None):
+    def compute(self, var_dict = {'pi' : math.pi, 'e' : math.e}, priv = None):
         return None
 
     def tostring(self):
@@ -59,6 +60,9 @@ class Terminal(Symbol):
     def do_copy(self):
         return Terminal(self.name)
     
+    def canonicalize(self, parent = None, skip = 0):
+        return self
+
 class D(Symbol):
     is_variable = False
     def __init__(self, parent = None):
@@ -86,7 +90,7 @@ class D(Symbol):
         terminal = Terminal(sym, self)
         self.children_list.append(terminal)
 
-    def compute(self, var_dict, priv = None):
+    def compute(self, var_dict = {'pi' : math.pi, 'e' : math.e}, priv = None):
         sym = str(self.children_list[0].name)
         if self.is_variable:
             if sym in var_dict:
@@ -111,6 +115,31 @@ class D(Symbol):
         paren = self.parent
         paren.delete()
 
+    def canonicalize(self, parent = None, skip = 0):
+        return self
+
+    def is_num(self):
+        terminal = self.children_list[0]
+        return type(terminal) == float or type(terminal) == int
+
+    def is_int(self):
+        terminal = self.children_list[0]
+        return type(terminal.name) == int
+
+    def get_num(self):
+        return self.children_list[0].name
+
+    def set_num(self, val):
+        self.children_list[0].name = val
+
+    def pow(self, operand, parent):
+        pow_tail = parent.chilren_list[1]
+        if self.is_num() and type(operand) == D and operand.is_num():
+            self.set_num(pow(self.get_num(), operand.get_num()))
+            pow_tail.is_terminal = True
+            return self
+        
+        return parent
 
 class Derivative:
     @classmethod
@@ -210,7 +239,7 @@ class Paren(Symbol):
             self.children_list.append(d)
             d.parse(tokens)
 
-    def compute(self, var_dict, priv = None):
+    def compute(self, var_dict = {'pi' : math.pi, 'e' : math.e}, priv = None):
         if self.fn == None:
             if len(self.children_list) == 3:
                 expr = self.children_list[1]
@@ -255,6 +284,17 @@ class Paren(Symbol):
         ppow = self.parent
         pow_tail = ppow.children_list[1]
 
+    def canonicalize(self, parent = None, skip = 0):
+        if len(self.children_list) == 3: #Parentheses contains expr
+            expr = self.chilren_list[1]
+            expr.canonicalize(self) #expr is a mutable object
+        if self.fn == None:
+            return expr 
+        return self
+
+    def pow(self, operand, parent):
+        #is paren..
+        return parent
 
 class Pow(Symbol):
     def __init__(self, parent = None):
@@ -275,7 +315,7 @@ class Pow(Symbol):
         paren.parse(tokens)
         pow_tail.parse(tokens)
 
-    def compute(self, var_dict, priv = None):
+    def compute(self, var_dict = {'pi' : math.pi, 'e' : math.e}, priv = None):
         paren = self.children_list[0]
         pow_tail = self.children_list[1]
         if pow_tail.is_terminal:
@@ -288,6 +328,21 @@ class Pow(Symbol):
         pow_tail = self.children_list[1]
 
         return pow_tail.diff(var_dict, paren)
+
+    def canonicalize(self, parent = None, skip = 0):
+        paren = self.children_list[0]
+        pow_tail = self.chilren_list[1]
+        
+        expr = paren.canonicalize(self) #mutable object
+        pow_tail = pow_tail.canonicalize(self) #mutable object
+        root_base = paren.get_root() #TODO need to implement it
+
+        root_base.pow(pow_tail, self)
+        
+    
+    def pow(self, operand, parent):
+        
+
 
 class Pow_tail(Symbol):
     def __init__(self, parent = None):
@@ -313,7 +368,7 @@ class Pow_tail(Symbol):
         terminal.parse(tokens)
         ppow.parse(tokens)
     
-    def compute(self, var_dict, priv = None):
+    def compute(self, var_dict = {'pi' : math.pi, 'e' : math.e}, priv = None):
         if self.is_terminal == True:
             return None
         else:
@@ -374,6 +429,34 @@ class Pow_tail(Symbol):
 
         return ret
 
+    def canonicalize(self, parent = None, skip = 0):
+        paren = self.children_list[1]
+        pow_tail = self.chilren_list[2]
+        expr = paren.canonicalize(self) #mutable object
+        pow_tail = pow_tail.canonicalize(self) #mutable object
+        root_base = paren.get_root() #TODO need to implement it
+        root_exp = pow_tail.get_root()
+
+        if type(root_base) == D and type(root_exp) == D and\
+                root_base.is_num() and root_exp.is_num():
+            root_base.chilren_list[0].name = self.compute()
+            pow_tail.is_terminal = True
+            pow_tail.chilren_list.clear()
+
+        elif type(root_base) == Expr and type(root_exp) == D and\
+                root_exp.is_int():
+            root_base.pw
+
+
+
+
+
+                
+        if pow_tail.is_terminal:
+            return root_base
+
+        return root_base.pow(expr, pow_tail)
+        
 
 class Term(Commutable):
     def __init__(self, parent = None):
@@ -393,7 +476,7 @@ class Term(Commutable):
         ppow.parse(tokens)
         self.tail = term_tail.parse(tokens)
     
-    def compute(self, var_dict, priv = None):
+    def compute(self, var_dict = {'pi' : math.pi, 'e' : math.e}, priv = None):
         ppow = self.children_list[0]
         term_tail = self.children_list[1]
         return term_tail.compute(var_dict, ppow.compute(var_dict))
@@ -470,6 +553,58 @@ class Term(Commutable):
         self.children_list[1] = cur
         self.update_vars()      
 
+    def canonicalize(self, parent = None, skip = 0):
+        pow_dict = {}
+        offset = 0
+        term_tail = self.make_term_tail()
+
+        while term_tail.is_terminal == False:
+            op = term_tail.children_list[0]     
+            ppow = term_tail.chilren_list[1]
+            ppow.canonicalize()#must be ppow...
+            pow_tail = ppow.chilren_list[1]
+            paren = ppow.chilren_list[0]
+
+            root_pow = ppow.get_root()
+
+            if type(root_pow) == D and root_pow.is_num():
+                if 'number' in pow_dict:
+                    if op == '*':
+                        pow_dict['number'] *= root_pow.get_num()
+                    else:
+                        pow_dict['number'] /= root_pow.get_num()
+                else:
+                    pow_dict['number'] = root_pow.get_num()
+
+            elif pow_tail.is_terminal == True and\
+                paren.is_terminal == False and paren.fn == None and op == '*':
+                assert ppow.is_terminal == False
+                expr = paren.chilren_list[1] 
+                t1 = Term.make_from_dict(pow_dict)
+                expr.prepend(t1)
+                expr.append(term_tail)
+                return expr.canonicalize(None, len(pow_dict))
+            
+            if type(root_pow) == Term:
+                if op == '/':
+                    root_pow.flip_div()
+                
+                root_pow.append_tail(term_tail)
+                term_tail = root_pow.make_term_tail()
+                continue
+
+            assert paren.is_terminal == False
+            key = paren.tostring_local()
+            if key in pow_dict:
+                local_term_tail = pow_dict[key]
+                local_term_tail.exp(term_tail)
+            else:
+                pow_dict[key] = term_tail
+
+            term_tail = term_tail.chilren_list[2]
+
+        return Expr.make_from_term(Term.make_from_dict(pow_dict))
+            
 class Term_tail(Symbol):
     def __init__(self, parent = None):
         Symbol.__init__(self, parent = None)
@@ -497,7 +632,7 @@ class Term_tail(Symbol):
         ppow.parse(tokens)
         return term_tail.parse(tokens)
  
-    def compute(self, var_dict, priv = None):
+    def compute(self, var_dict = {'pi' : math.pi, 'e' : math.e}, priv = None):
         if self.is_terminal == True:
             return priv
 
@@ -593,7 +728,7 @@ class Expr(Commutable):
         term.parse(tokens)
         self.tail = expr_tail.parse(tokens)
      
-    def compute(self, var_dict, priv = None):
+    def compute(self, var_dict = {'pi' : math.pi, 'e' : math.e}, priv = None):
         if self.is_terminal == True:
             return None
 
@@ -607,15 +742,59 @@ class Expr(Commutable):
         expr_tail = self.children_list[1]
         return expr_tail.diff(var_dict, term)
 
-    def canonicalize(self):
+    #convert_tail, lt, le...j
+    def canonicalize(self, parent, skip):
+        term = self.children_list[0]
+        expr_list = []
+        expr_list.append(term.canonicalize().convert_tail())
+        cur = expr_tail
+        
+        while cur.is_terminal == False:
+            
+            op = cur.chilren_list[0]
+            term = cur.chilren_list[1]
+            expr = term.canonicalize()
+            converted = expr_from_term.convert_tail()
+            if op == '-':
+                expr.flip_op()
+            expr_list.append(converted)
+            cur = cur.chilren_list[2]
 
-        expr_tail = Expr_tail()
-        expr_tail.children_list[0] = '+'
-        expr_tail.children_list[1] = self.term
-        expr_tail.vars.update(self.term.vars)
-        expr_tail.parent = self
+        min_heap = []
+        for i in range(0, len(expr_list)):
+            if expr.is_terminal == False:
+                cur = expr_list[i]
+                expr_tail = cur.chilren_list[2]
+                expr_list[i] = expr_tail
+                heappush(min_heap, (cur, i))
 
-    #TODO remove redundant codes..
+        cur = None
+        head = None
+        while len(min_heap) > 0:
+            entry = heappop(min_heap)
+            expr_tail = entry[0]
+            topush = entry[1]
+            if cur == None:
+                head = cur = expr_tail
+            else:
+                if cur.mergeable(expr_tail):
+                    cur.merge(expr_tail)
+                else:
+                    cur.append_link(expr_tail)
+                    cur = expr_tail
+
+            picked_next = expr_list[topush].chilren_list[2]
+            if picked_next.is_terminal == False:
+                expr_list[topush] = picked_next
+                heappush(min_heap, (picked_next, topush))
+        
+        if cur == None:
+            self.is_terminal = True
+            return self
+
+        return self.make_from_tail(head, cur, parent) #first, last, expr_tail
+    
+
     def sort(self):
         term = self.children_list[0]
         first = Expr_tail() #dummy
@@ -709,7 +888,7 @@ class Expr_tail(Symbol):
         term.parse(tokens)
         return expr_tail.parse(tokens)
 
-    def compute(self, var_dict, priv = None):
+    def compute(self, var_dict = {'pi' : math.pi, 'e' : math.e}, priv = None):
         if self.is_terminal == True:
             return priv
 
@@ -751,6 +930,7 @@ class Expr_tail(Symbol):
                     ret = '-1 * '
                 ret += expr_tail.diff(var_dict, this_term)
         return ret
+    def
 
 string  = '5 * 5 / 6 ^ 2 / 7'
 string = '3 ^ 2 * 3 / 2 ^ 3'
