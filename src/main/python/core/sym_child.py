@@ -126,19 +126,35 @@ class D(Symbol):
         terminal = self.children_list[0]
         return type(terminal.name) == int
 
-    def get_num(self):
+    def get_char(self):
         return self.children_list[0].name
 
-    def set_num(self, val):
+    def set_char(self, val):
         self.children_list[0].name = val
 
-    def pow(self, operand, parent):
+    def pow(self, exp, parent): #Done
+        paren = parent.chilren_list[0]
         pow_tail = parent.chilren_list[1]
-        if self.is_num() and type(operand) == D and operand.is_num():
-            self.set_num(pow(self.get_num(), operand.get_num()))
+        paren.chilren_list.clear()
+        paren.fn = None
+        paren.chilren_list.append(self)
+        self.parent = paren
+
+        #the case in which exponent is zero must be handled before pow is called
+        assert (type(exp) == D and exp.get_char() == 0) == False
+
+        if self.get_char() == 0: #exceptional case
+            self.set_char(0)
             pow_tail.is_terminal = True
-            return self
-        
+            pow_tail.chilren_list.clear()
+            paren.chilren_list.append(self)
+
+        elif self.is_num() and type(exp) == D and exp.is_num(): 
+            #merge numbers...
+            self.set_char(pow(self.get_char(), exp.get_char()))
+            pow_tail.is_terminal = True
+            pow_tail.chilren_list.clear()
+
         return parent
 
 class Derivative:
@@ -288,12 +304,13 @@ class Paren(Symbol):
         if len(self.children_list) == 3: #Parentheses contains expr
             expr = self.chilren_list[1]
             expr.canonicalize(self) #expr is a mutable object
-        if self.fn == None:
-            return expr 
+            if self.fn == None:
+                return expr 
         return self
 
     def pow(self, operand, parent):
-        #is paren..
+        #Do nothing...
+        assert self.fn != None
         return parent
 
 class Pow(Symbol):
@@ -333,16 +350,75 @@ class Pow(Symbol):
         paren = self.children_list[0]
         pow_tail = self.chilren_list[1]
         
-        expr = paren.canonicalize(self) #mutable object
+        paren = paren.canonicalize(self) #mutable object
         pow_tail = pow_tail.canonicalize(self) #mutable object
-        root_base = paren.get_root() #TODO need to implement it
 
-        root_base.pow(pow_tail, self)
+        root_base = paren.get_root()
+        root_exp = pow_tail.get_root() 
+
+        if root_exp == None:
+            pow_tail.is_terminal = True
+            pow_tail.chilren_list.clear()
+            if type(root_base) == Pow:
+                #swap root_base and self... 
+            elif type(root_base) == D:
+                #assign d to paren
+            return self 
+
+        elif type(root_exp) == D and root_exp.is_num():
+            num_exp = root_exp.get_char() 
+            if num_exp == 0 or num_exp == 1:
+                pow_tail.is_terminal = True 
+                pow_tail.chilren_list.clear()
+            if num_exp == 0
+                paren.fn = None
+                root_exp.set_char(1)
+                paren.chilren_list.clear()
+                paren.chilren_list.append(root_exp)
+                root_exp.parent = paren
+                return self
         
+        elif type(root_exp) == Pow:
+            assert pow_tail.is_terminal == False
+            assert len(pow_tail.chilren_list) == 2
+            pow_tail.chilren_list[1] = root_exp
+
+
+        root_base.pow(pow_tail)
+
     
-    def pow(self, operand, parent):
-        
+    def pow(self, operand):#pow_tail
+        assert operand.is_terminal == False
 
+        paren = self.children_list[0]
+        pow_tail = self.children_list[1]
+
+        #That's because the pow without tail has been cacnonicalized as other
+        #symbol.
+        assert pow_tail.is_terminal == False
+        root_paren = paren.get_root()
+        
+        assert type(root_paren) != Term
+
+        # make pow_tail converted to expr
+        lpow = pow_tail.chilren_list[1]
+        rpow = operand.chilren_list[1]
+
+        lexpr = lpow
+        rexpr = rpow
+        assert type(lexpr) == type(rexpr)
+        while type(lexpr) != Expr and type(rexpr) != Expr
+            lexpr = lpow.wrap()
+            rexpr = rexpr.wrap()
+
+        lexpr.mul(rexpr)
+
+        while type(lexpr) == Pow:
+            lexpr = lexpr.wrap()
+
+        pow_tail.chilren_list[1] = lexpr
+        
+        return self.canonicalize()
 
 class Pow_tail(Symbol):
     def __init__(self, parent = None):
@@ -570,11 +646,11 @@ class Term(Commutable):
             if type(root_pow) == D and root_pow.is_num():
                 if 'number' in pow_dict:
                     if op == '*':
-                        pow_dict['number'] *= root_pow.get_num()
+                        pow_dict['number'] *= root_pow.get_char()
                     else:
-                        pow_dict['number'] /= root_pow.get_num()
+                        pow_dict['number'] /= root_pow.get_char()
                 else:
-                    pow_dict['number'] = root_pow.get_num()
+                    pow_dict['number'] = root_pow.get_char()
 
             elif pow_tail.is_terminal == True and\
                 paren.is_terminal == False and paren.fn == None and op == '*':
@@ -604,6 +680,13 @@ class Term(Commutable):
             term_tail = term_tail.chilren_list[2]
 
         return Expr.make_from_term(Term.make_from_dict(pow_dict))
+
+    def pow(self, operand):
+        '''
+            for pow in term
+                *pow = pow.pow(operand)
+        '''
+        
             
 class Term_tail(Symbol):
     def __init__(self, parent = None):
@@ -860,6 +943,15 @@ class Expr(Commutable):
         self.children_list[1] = cur
         self.update_vars()
 
+    def pow(self, operand, parent):
+        '''
+            self 
+            if operand is integer:
+                for i to integer:
+                    ret.mul()
+            not
+                return parent
+        '''
 class Expr_tail(Symbol):
     def __init__(self, parent = None):
         Symbol.__init__(self, parent = None)
