@@ -10,6 +10,7 @@ class Symbol:
         self.vars = {} #for differentiation
         self.parent = parent
         self.cache = {}
+        self.invalidate = False
         '''
             x: True
             y: False
@@ -55,6 +56,25 @@ class Symbol:
     @abstractmethod
     def delete():
         pass
+    
+    def make_tail(self):
+        tail = self.create_tail()
+        tail.is_terminal = self.is_terminal
+        tail.children_list.append(self.default_op())
+        tail.children_list.extends(self.children_list)
+        return tail
+
+    def get_root(self):
+        if self.is_terminal == True:
+            return None
+        assert len(self.children_list) == 2
+        child = self.children_list[0]
+        tail = self.children_list[1] 
+        if tail.is_terminal == False:
+            return self
+        else:
+            return child.get_root()
+
 
     @abstractmethod
     def pow(self, operand, parent):
@@ -112,7 +132,7 @@ class Symbol:
                 return True
         return False
 
-    #it returns the result of  fill_chilren_list
+    #it returns the result of  fill_children_list
     #Wrapper of fill_children_list..
     def parse(self, tokens):
         if type(tokens) is not deque:
