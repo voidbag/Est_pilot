@@ -470,7 +470,7 @@ class Pow(Symbol):
 
         lexpr.mul(rexpr)
 
-        while type(lexpr) == Pow:
+        while type(lexpr) != Pow:
             lexpr = lexpr.wrap()
 
         pow_tail.children_list[1] = lexpr
@@ -572,36 +572,7 @@ class Pow_tail(Symbol):
             else:
                 ret += ' ' + child.tostring()
 
-        return ret
-
-    def canonicalize(self, parent = None, skip = 0):
-        paren = self.children_list[1]
-        pow_tail = self.children_list[2]
-        expr = paren.canonicalize(self) #mutable object
-        pow_tail = pow_tail.canonicalize(self) #mutable object
-        root_base = paren.get_root() #TODO need to implement it
-        root_exp = pow_tail.get_root()
-
-        if type(root_base) == D and type(root_exp) == D and\
-                root_base.is_num() and root_exp.is_num():
-            root_base.children_list[0].name = self.compute()
-            pow_tail.is_terminal = True
-            pow_tail.children_list.clear()
-
-        elif type(root_base) == Expr and type(root_exp) == D and\
-                root_exp.is_int():
-            root_base.pw
-
-
-
-
-
-                
-        if pow_tail.is_terminal:
-            return root_base
-
-        return root_base.pow(expr, pow_tail)
-        
+        return ret        
 
 class Term(Commutable):
     def __init__(self, parent = None):
@@ -709,56 +680,62 @@ class Term(Commutable):
     def canonicalize(self, parent = None, skip = 0):
         pow_dict = {}
         offset = 0
-        term_tail = self.make_tail()
+        cur = self.make_tail()
 
-        while term_tail.is_terminal == False:
-            op = term_tail.children_list[0]     
-            ppow = term_tail.children_list[1]
-            ppow.canonicalize()#must be ppow...
+        while cur.is_terminal == False:
+            op = cur.children_list[0]     
+            ppow = cur.children_list[1]
+            ppow = ppow.canonicalize()#must be ppow...
             pow_tail = ppow.children_list[1]
+
             paren = ppow.children_list[0]
 
-            root_pow = ppow.get_root()
+            root = ppow.get_root()
 
-            if type(root_pow) == D and root_pow.is_num():
+            if type(root) == D and root.is_num():
                 if 'number' in pow_dict:
                     if op == '*':
-                        pow_dict['number'] *= root_pow.get_char()
+                        pow_dict['number'] *= root.get_char()
                     else:
-                        pow_dict['number'] /= root_pow.get_char()
+                        #TODO check get_char
+                        pow_dict['number'] /= root.get_char()
                 else:
-                    pow_dict['number'] = root_pow.get_char()
-
-            elif pow_tail.is_terminal == True and\
-                paren.is_terminal == False and paren.fn == None and op == '*':
+                    pow_dict['number'] = root.get_char()
+            elif type(root) == Expr and pow_tail.is_terminal == True and\
+                    op == '*':
                 assert ppow.is_terminal == False
-                expr = paren.children_list[1] 
+                expr = root 
                 t1 = Term.make_from_dict(pow_dict)
                 expr.prepend_term(t1)
-                t2 = Term.make_from_tail(term_tail)
+                t2 = Term.make_from_tail(cur)
                 expr.append_term(t2)
                 return expr.canonicalize(None, len(pow_dict))
             
-            if type(root_pow) == Term:
+            if type(root) == Term:
                 if op == '/':
-                    root_pow.flip_div()
-                
-                root_pow.append_tail(term_tail)
-                term_tail = root_pow.make_tail()
+                    root.flip_div()
+               
+                #tail check
+                root.append_tail(cur) #TODO
+                cur = root.make_tail()
                 continue
 
+            #we need to check d
             assert paren.is_terminal == False
             key = paren.tostring_local()
             if key in pow_dict:
                 local_term_tail = pow_dict[key]
-                local_term_tail.exp(term_tail)
+                local_term_tail.exp(cur)
             else:
-                pow_dict[key] = term_tail
+                pow_dict[key] = cur
 
-            term_tail = term_tail.children_list[2]
+            cur = cur.children_list[2]
+        
+        term = Term.make_from_dict(pow_dict)
+        
+        ret = term.wrap() 
+        return ret 
 
-        return Expr.make_from_term(Term.make_from_dict(pow_dict))
-    
     def pow(self, operand):
         '''
             for pow in term
@@ -917,17 +894,20 @@ class Expr(Commutable):
         return expr_tail.diff(var_dict, term)
 
     #convert_tail, lt, le...j
-    def canonicalize(self, parent, skip):
-        term = self.children_list[0]
-        expr_list = []
-        expr_list.append(term.canonicalize().make_tail())
-        cur = expr_tail
+    #It merges the exprs generated by canonicalization of each term, like
+    #mergesort
+    def canonicalize(self, parent = None, skip = 0):
+
+        #TODO remove parantheses
+
+        expr_list = [] 
+        cur = self.make_tail() #conversion for iterating 
         
         while cur.is_terminal == False: 
             op = cur.children_list[0]
             term = cur.children_list[1]
             expr = term.canonicalize()
-            tail = expr_from_term.make_tail()
+            tail = expr.make_tail()
             if op == '-':
                 expr.flip_op()
             expr_list.append(tail)
@@ -935,39 +915,85 @@ class Expr(Commutable):
 
         min_heap = []
         for i in range(0, len(expr_list)):
-            if expr_list[i].is_terminal == False:
-                cur = expr_list[i]
+            cur = expr_list[i]
+            if cur.is_terminal == False:
                 expr_tail = cur.children_list[2]
-                expr_list[i] = expr_tail
+                expr_list[i] = expr_tail #update run
                 cur.invalidate = True
                 heappush(min_heap, (cur, i))
 
         cur = None
         head = None
+        terminal = Expr_tail()
+        terminal.is_terminal = True
+
         while len(min_heap) > 0:
             entry = heappop(min_heap)
             expr_tail = entry[0]
             topush = entry[1]
             if cur == None:
                 head = cur = expr_tail
+                head.parent = None
+                expr_tail.children_list[2] = terminal
+                terminal.parent = expr_tail
             else:
                 if cur.mergeable(expr_tail):
                     cur.merge(expr_tail)
+                    if cur.is_terminal:
+                        cur = cur.parent
+                    #TODO check current constant is zero
                 else:
-                    cur.append_link(expr_tail)
+                    if cur.is_terminal or cur.get_constant() == 0:
+                       cur = cur.parent
+                       if cur == None:
+                           heappush(min_heap, entry)
+                           continue
+
+                    assert expr_tail.is_terminal == False
+                    cur.children_list[2] = expr_tail
+                    expr_tail.children_list[2] = terminal
+                    terminal.parent = expr_tail
+                    expr_tail.parent = cur
                     cur = expr_tail
 
             picked_next = expr_list[topush].children_list[2]
+            #update minheap
             if picked_next.is_terminal == False:
                 expr_list[topush] = picked_next
                 heappush(min_heap, (picked_next, topush))
         
         if cur == None:
-            self.is_terminal = True
-            return self
+            d = D(0.0)
+            wrapped = d
+            while type(wrapped) != Expr:
+                wrapped = wrapped.wrap()
 
-        return self.make_from_tail(head, cur, parent) #first, last, expr_tail
-    
+            self.is_terminal = False
+            self.children_list = wrapped.children_list
+            self.children_list[0].parent = self
+            self.children_list[1].parent = self
+            self.tail = self
+            return self
+        
+        tail = None
+        if head.children_list[2].is_terminal == True:
+            tail = self 
+        else:
+            tail = cur 
+        
+        op = head.children_list[0]
+        if op == '-':
+            term = head.children_list[1]
+            term.minus()
+        else:
+            assert op == '+'
+
+        head.children_list[1].parent = self
+        head.children_list[2].parent = self
+        self.tail = tail
+        self.children_list = head.children_list[1:]
+
+        return self 
 
     def sort(self):
         term = self.children_list[0]
@@ -1232,6 +1258,17 @@ class Expr(Commutable):
 
         return self
 
+    def inverse(self):
+        wrapped = self
+        while type(wrapped) != Pow:
+            wrapped = wrapped.wrap()
+        
+        ppow = wrapped
+        wrapped = D(1.0)
+        while type(wrapped) != Term:
+            wrapped = wrapped.wrap()
+        
+
     def wrap(self):
         paren = Paren()
         
@@ -1319,6 +1356,74 @@ class Expr_tail(Symbol):
                 ret += expr_tail.diff(var_dict, this_term)
         return ret
 
+    def mergeable(self, expr_tail):
+        if self.get_id() == expr_tail.get_id()
+            return True
+        return False
+
+
+    def merge(self, expr_tail):
+        l_const = self.get_constant()
+        r_const = expr_tail.get_constant()
+        
+        const = l_const + r_const
+
+        if const < 0:
+            const *= -1.0
+            self.children_list[0] = '-'
+        
+        term = self.children_list[1]
+        ppow = term.children_list[0] 
+        term_tail = term.children_list[1]
+        root = ppow.get_root()
+
+        if const == 0.0:
+            #delete???
+            self.is_terminal = True
+            self.children_list.clear()
+            return self
+
+        #prune 1...
+        if type(root) == D:
+            op_term_tail = term_tail.children_list[0]
+            if const == 1.0 and term_tail.is_terminal == False and\
+                    op_term_tail == '*':
+                tail = term.tail
+                term = Term.make_from_tail(term_tail)
+                term_tail = term.children_list[1]
+
+                if term_tail.is_terminal == True:
+                    tail = term
+
+                term.tail = tail
+                term.parent = self
+                self.children_list[1] = term
+                return self
+            else:
+                root.name = const #in-place update
+        else:  
+            if const != 1.0:
+                #1 case
+                d = D(const)
+                wrapped = d
+                tail = term.tail
+                term_tail = term.make_tail()
+                while type(wrapped) != Pow:
+                    wrapped = wrapped.wrap()
+    
+                if type(tail) == Term:
+                    wrapped.tail = term_tail
+                else:
+                    assert type(tail) == Term_tail
+                    wrapped.tail = tail
+                
+                term_tail.parent = wrapped
+                wrapped.parent = term.parent
+                wrapped.children_list[1] = term_tail
+ 
+        return self
+
+     
     #get_id has to be debugged....
     def get_id(self):
         assert self.is_terminal == False
@@ -1328,15 +1433,35 @@ class Expr_tail(Symbol):
         
         self.invalidate = False
         term = self.children_list[1]
+        ppow = term.children_list[0] 
         term_tail = term.children_list[1]
-        root = term.get_root()
+        root = ppow.get_root()
  
-        if term_tail.is_terminal == False and type(root) == D and root.is_num():
+        if type(root) == D and root.is_num():
             ret = term_tail.tostring()
+            if term_tail.is_terminal:
+                assert len(term_tail.children_list)
         else:
             ret = term.tostring()
 
         self.cache['id'] = ret
+
+        return ret
+
+    def get_constant(self):
+        assert self.is_terminal == False 
+        term = self.children_list[1]
+        ppow = term.children_list[0]
+        root = ppow.get_root()
+      
+        ret = 0
+        if type(root) == D and root.is_num():
+            ret = root.get_char()
+        else:
+            ret = 1.0
+
+        if self.op == '-':
+            ret *= -1.0
 
         return ret
 
