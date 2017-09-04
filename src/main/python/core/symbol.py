@@ -56,7 +56,42 @@ class Symbol:
     @abstractmethod
     def delete():
         pass
-    
+
+    @classmethod
+    def make_from_tail(cls, tail):
+        assert tail.is_terminal == False
+        
+        obj = cls.do_copy()
+        cur = tail
+
+        #for get tail
+        if isinstance(obj, Commutable):
+            while cur.is_terminal == False: 
+                if cur.children_list[2].is_terminal:
+                    break
+                cur = cur.children_list[2]
+        
+        if tail.children_list[0] != cls.default_op():
+            d = D(1.0)
+            wrapped = d
+            while type(wrapped) != type(tail.children_list[1]):
+                wrapped = wrapped.wrap()
+
+            tail.parent = obj 
+            wrapped.parent = obj
+            obj.children_list.append(wrapped)
+            obj.children_list.append(tail)
+
+        else:
+            tail.children_list[1].parent = obj
+            tail.children_list[2].parent = obj
+            obj.children_list = tail.children_list[1:]
+        
+        if isinstance(obj, Commutable):
+            obj.tail = cur
+
+        return obj
+
     def make_tail(self):
         tail = self.create_tail()
         tail.is_terminal = self.is_terminal

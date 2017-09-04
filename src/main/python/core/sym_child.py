@@ -328,9 +328,16 @@ class Paren(Symbol):
     def canonicalize(self, parent = None, skip = 0):
         if len(self.children_list) == 3: #Parentheses contains expr
             expr = self.children_list[1]
-            expr.canonicalize(self) #expr is a mutable object
+            root = expr.get_root()
+            cur = root 
+            while type(cur) != Expr:
+                cur = cur.wrap()
+
+            self.children_list[1] = cur
+            cur.canonicalize(self)
             if self.fn == None:
-                return expr 
+                return cur
+
         return self
 
     def pow(self, operand, parent):
@@ -677,20 +684,82 @@ class Term(Commutable):
         self.children_list[1] = cur
         self.update_vars()      
 
+    def make_from_dict(self, pow_dict):
+        #term_tail in pow_dict
+
+    def flip_div(self):
+        if self.is_terminal == True:
+            return
+
+        head = prev = cur = self.make_tail()
+        
+        while cur.is_terminal == False:
+            op = cur.children_list[0]
+            if op == '*':
+                cur.children_list[0] = '/'
+            else:
+                assert op == '/'
+                cur.children_list[1] = '*'
+            
+            prev = cur
+            cur = cur.children_list[2] 
+        
+        root = head.get_root()
+        elif type(root) == D and root.is_num():
+            root.set_char(1.0 / root.get_char())
+        else:
+            d = D('1.0')
+            wrapped = d
+
+            while wrapped != Pow:
+                wrapped = wrapped.wrap()
+        
+            if type(self.tail) == Term:
+                assert head.children_list[2].is_terminal == True
+                assert prev == head
+            else:
+                assert type(self.tail) == Term_tail
+            
+            self.tail = prev
+            self.children_list[0] = wrapped #pow
+            self.children_list[1] = head #term_tail
+            head.parent = self
+            wrapped.parent = self
+
+    def append(self, term):
+        if self.is_terminal:
+            assert False
+
+        
+        term_tail = term.make_tail()
+        idx = 2
+        if type(self.tail) == Term:
+           idx = 1 
+        
+        tail = term.tail
+        if type(term.tail) == Term:
+            tail = term_tail 
+        
+        self.tail.children_list[idx] = term_tail
+        term_tail.parent = self.tail
+        self.tail = tail
+ 
     def canonicalize(self, parent = None, skip = 0):
         pow_dict = {}
         offset = 0
-        cur = self.make_tail()
+        cur = self.make_tail() # Term_tail
 
         while cur.is_terminal == False:
-            op = cur.children_list[0]     
+            op = cur.children_list[0] 
             ppow = cur.children_list[1]
             ppow = ppow.canonicalize()#must be ppow...
             pow_tail = ppow.children_list[1]
 
             paren = ppow.children_list[0]
-
             root = ppow.get_root()
+
+            root_tail = Pow.make_from_tail(pow_tail)
+            root_tail = root_tail.get_root()
 
             if type(root) == D and root.is_num():
                 if 'number' in pow_dict:
@@ -701,8 +770,9 @@ class Term(Commutable):
                         pow_dict['number'] /= root.get_char()
                 else:
                     pow_dict['number'] = root.get_char()
-            elif type(root) == Expr and pow_tail.is_terminal == True and\
-                    op == '*':
+            elif type(root) == Expr and op == '*' and\
+                    (pow_tail.is_terminal == True or (type(root_tail) == D and
+                        root_tail.get_char() == 1)) 
                 assert ppow.is_terminal == False
                 expr = root 
                 t1 = Term.make_from_dict(pow_dict)
@@ -713,10 +783,11 @@ class Term(Commutable):
             
             if type(root) == Term:
                 if op == '/':
-                    root.flip_div()
-               
+                    root.flip_div() 
                 #tail check
-                root.append_tail(cur) #TODO
+
+                t1 = Term.make_from_tail(cur)
+                root.append(t1)
                 cur = root.make_tail()
                 continue
 
@@ -733,7 +804,9 @@ class Term(Commutable):
         
         term = Term.make_from_dict(pow_dict)
         
-        ret = term.wrap() 
+        ret = term.wrap()
+
+        assert type(ret) == Expr
         return ret 
 
     def pow(self, operand):
@@ -911,7 +984,10 @@ class Expr(Commutable):
             if op == '-':
                 expr.flip_op()
             expr_list.append(tail)
+            if cur.children_list[2].is_terminal:
+                break
             cur = cur.children_list[2]
+
 
         min_heap = []
         for i in range(0, len(expr_list)):
