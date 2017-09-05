@@ -57,6 +57,12 @@ class Symbol:
     def delete():
         pass
 
+    def wrap_to(self, cls):
+        obj = self
+        while type(obj) != cls:
+            obj = obj.wrap()    
+        return obj
+
     @classmethod
     def make_from_tail(cls, tail):
         assert tail.is_terminal == False
