@@ -15,10 +15,21 @@ class Symbol:
             x: True
             y: False
         '''
+  
+    #It returns the children_list of Pow obj
+    #None: if 
+    def pow(self, root_exp):
+        return None
+
+    def do_pow(self, root_exp):
+        return
     
-    @abstractmethod
+    def set_terminal(self):
+        self.is_terminal = True
+        self.children_list.clear()
+
     def is_num(self):
-        pass
+        return False
     
     @abstractmethod
     def canonicalize(self, parent = None, skip = 0):

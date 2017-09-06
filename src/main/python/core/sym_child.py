@@ -422,45 +422,91 @@ class Pow(Symbol):
 
         return pow_tail.diff(var_dict, paren)
 
+    #Paren.canonicalize() must be implemented..
+    #It must return obj of Pow
     def canonicalize(self, parent = None, skip = 0):
         paren = self.children_list[0]
-        pow_tail = self.children_list[1]
-        
+        pow_tail = self.children_list[1] 
+        exp_pow = pow_tail.canonicalize() 
         paren = paren.canonicalize(self) #mutable object
-        pow_tail = pow_tail.canonicalize(self) #mutable object
 
         root_base = paren.get_root()
-        root_exp = pow_tail.children_list[1].get_root() 
-
-        if root_exp == None: #if pow_tail is terminal
-            pow_tail.is_terminal = True
-            pow_tail.children_list.clear()
-            if type(root_base) == Pow:
-                #swap root_base and self... 
-            elif type(root_base) == D:
-                #assign d to paren
-            return self 
-
-        elif type(root_exp) == D and root_exp.is_num():
-            num_exp = root_exp.get_char() 
-            if num_exp == 0 or num_exp == 1:
-                pow_tail.is_terminal = True 
-                pow_tail.children_list.clear()
-            if num_exp == 0
-                paren.fn = None
-                root_exp.set_char(1)
-                paren.children_list.clear()
-                paren.children_list.append(root_exp)
-                root_exp.parent = paren
-                return self
+        root_exp = exp_pow.get_root()
+        if pow_tail.is_terminal:
+            return self
         
-        elif type(root_exp) == Pow:
-            assert pow_tail.is_terminal == False
-            assert len(pow_tail.children_list) == 2
-            pow_tail.children_list[1] = root_exp
+        assert exp_pow != None
+        #(*,0) (0, *)
+        if (root_exp.is_num() and root_exp.get_char() == 0.0) or\
+                (root_base.is_num() and root_base.get_char == 0.0):
+            const = 0.0
+            if root_exp.get_char() == 0.0:
+                const = 1.0
+            
+            d = D(const)
+            pow_tail.set_terminal()
+            paren.children_list.clear()
+            paren.fn = None
+            paren.children_list.append(d)
+            return self
+      
+        #(*, 1)
+        if root_exp.is_num() and root_exp.get_char() == 1.0:
+            pow_tail.set_terminal()
+            return self
+           
+        if type(root_base) == Pow:
+            parenofbase = root_base.children_list[0]
+            expofbase = root_base.children_list[1].children_list[1]
+            expofbase = expofbase.wrap_to(Expr)
+            root_exp = root_exp.wrap_to(Expr)
+            expofbase.mul(root_exp)
+            ppow = expofbase.wrap_to(Pow)
+            pow_tail = Pow_tail()
+            pow_tail.children_list.append(Terminal('^'))
+            pow_tail.children_list.append(ppow)
+            root_base.children_list[1] = pow_tail
+            root_base.canonicalize()
+            self.children_list = root_base.children_list
+            return self
+            
+        elif type(root_base) == Term:
+            head = cur = root_base.make_tail()
+            while cur.is_terminal == False:
+                ppow = cur.children_list[1]    
+                ppow.pow(root_exp)
+                cur = cur.children_list[2]
+            expr = root_base.canonicalize()
+            expr_root = expr.get_root() 
+     
+            ppow = expr_root.wrap_to(Pow)
+            self.children_list = ppow.children_list 
 
+        elif type(root_base) == Expr and root_exp.is_num() and\
+                root_exp.is_int():
 
-        root_base.pow(pow_tail)
+            is_inverse = False
+            num = root_exp.get_char()
+            
+            if num < 0:
+                is_inverse = True
+                num *= -1
+            
+            ret = root_base.copy()
+            for i in range(1, int(root_exp.get_char())):
+                ret.mul(root_base.copy())
+            if is_inverse:
+                ret.inverse()
+            ret.canonicalize()
+
+            ret = ret.get_root()
+            ret = ret.wrap_to(Pow)
+            self.children_list = ret.children_list 
+        else: 
+            assert type(root_base) == Paren or type(root_base) == D or\
+                    type(Expr)
+            #d nothing... 
+        return self
 
     def default_op(self):
         return '^'
