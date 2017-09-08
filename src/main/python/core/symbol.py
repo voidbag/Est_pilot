@@ -1,26 +1,20 @@
 from collections import deque
 from abc import ABCMeta, abstractmethod
 from queue import Queue
+import math
 
 class Symbol:
-    def __init__(self, parent):
+    def __init__(self):
         self.children_list = []
         self.name = ''
         self.is_terminal = False
         self.vars = {} #for differentiation
-        self.parent = parent
         self.cache = {}
         self.invalidate = False
         '''
             x: True
             y: False
         '''
-  
-    #It returns the children_list of Pow obj
-    #None: if 
-    def pow(self, root_exp):
-        return None
-
     def do_pow(self, root_exp):
         return
     
@@ -32,11 +26,11 @@ class Symbol:
         return False
     
     @abstractmethod
-    def canonicalize(self, parent = None, skip = 0):
+    def canonicalize(self, skip = 0):
         pass
 
     @abstractmethod
-    def fill_children_list(self, tokens):
+    def do_parse(self, tokens):
         pass
 
     @abstractmethod
@@ -52,22 +46,15 @@ class Symbol:
     def diff(self, var_dict, priv = None):
         pass
 
-    @classmethod
-    def pack(cls, op, left, right):
-        return None
-
     @abstractmethod
-    def tostring():
+    def tostring(self):
         pass
 
     @abstractmethod
-    def do_copy():
-        pass
+    def do_copy(self):
+        cls = type(self)
+        return cls()
     
-    @abstractmethod
-    def delete():
-        pass
-
     def wrap_to(self, cls):
         obj = self
         while type(obj) != cls:
@@ -75,37 +62,32 @@ class Symbol:
         return obj
 
     @classmethod
-    def make_from_tail(cls, tail):
+    def make_from_tail(cls, tail = None):
         assert tail.is_terminal == False
         
-        obj = cls.do_copy()
-        cur = tail
+        obj = cls()
+        head = prev = cur = tail
 
         #for get tail
         if isinstance(obj, Commutable):
             while cur.is_terminal == False: 
                 if cur.children_list[2].is_terminal:
                     break
+                prev = cur
                 cur = cur.children_list[2]
         
-        if tail.children_list[0] != cls.default_op():
+        if head.children_list[0] != cls.default_op():
             d = D(1.0)
-            wrapped = d
-            while type(wrapped) != type(tail.children_list[1]):
-                wrapped = wrapped.wrap()
+            wrapped = d.wrap_to(type(head.children_list[1]))
 
-            tail.parent = obj 
-            wrapped.parent = obj
             obj.children_list.append(wrapped)
             obj.children_list.append(tail)
 
         else:
-            tail.children_list[1].parent = obj
-            tail.children_list[2].parent = obj
             obj.children_list = tail.children_list[1:]
         
         if isinstance(obj, Commutable):
-            obj.tail = cur
+            obj.tail = prev
 
         return obj
 
@@ -113,7 +95,7 @@ class Symbol:
         tail = self.create_tail()
         tail.is_terminal = self.is_terminal
         tail.children_list.append(self.default_op())
-        tail.children_list.extends(self.children_list)
+        tail.children_list.extend(self.children_list)
         return tail
 
     def get_root(self):
@@ -129,8 +111,9 @@ class Symbol:
 
 
     @abstractmethod
-    def pow(self, operand, parent):
+    def pow(self, root_exp):
         pass
+        
 
     def tostring_local(self):
         key = 'tostring'
@@ -142,26 +125,18 @@ class Symbol:
         return val
         
     def update_vars(self, is_recursive = False):
-        self.vars = {}
-        for child in self.children_list:
-            self.vars.update(child.vars)
-
-        if is_recursive:
-            if self.parent is not None:
-                self.parent.update_vars(recursive)
-
+        assert False
 
     #TODO taill...
-    def copy(self, parent):
+    def copy(self):
         instance = self.do_copy()
         instance.name = self.name
         instance.is_terminal = self.is_terminal
-        instance.parent = parent
         for var in self.vars:
             instance.vars[var] = self.vars[var]
 
         for ele in self.children_list:
-            instance.children_list.append(ele.copy(instance))
+            instance.children_list.append(ele.copy())
 
         return instance
 
@@ -184,8 +159,8 @@ class Symbol:
                 return True
         return False
 
-    #it returns the result of  fill_children_list
-    #Wrapper of fill_children_list..
+    #it returns the result of  do_parse
+    #Wrapper of do_parse..
     def parse(self, tokens):
         if type(tokens) is not deque:
             print('Tokens is not deque!!')
@@ -198,7 +173,7 @@ class Symbol:
                 self.is_terminal = True
                 return
 
-            ret = self.fill_children_list(tokens)
+            ret = self.do_parse(tokens)
             for child in self.children_list:
                 self.vars.update(child.vars)
 
@@ -208,7 +183,7 @@ class Symbol:
         line = ' ' * depth * 6
         line += '|-- '
         line += str(self.name)
-        line += str(self.vars)
+        #line += str(self.vars)
         line += '\n'
 
         print(line)
