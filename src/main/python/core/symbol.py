@@ -39,15 +39,7 @@ class Symbol:
         pass
 
     @abstractmethod
-    def tostring(self):
-        pass
-
-    @abstractmethod
     def diff(self, var_dict, priv = None):
-        pass
-
-    @abstractmethod
-    def tostring(self):
         pass
 
     @abstractmethod
@@ -59,36 +51,6 @@ class Symbol:
         obj = self
         while type(obj) != cls:
             obj = obj.wrap()    
-        return obj
-
-    @classmethod
-    def make_from_tail(cls, tail = None):
-        assert tail.is_terminal == False
-        
-        obj = cls()
-        head = prev = cur = tail
-
-        #for get tail
-        if isinstance(obj, Commutable):
-            while cur.is_terminal == False: 
-                if cur.children_list[2].is_terminal:
-                    break
-                prev = cur
-                cur = cur.children_list[2]
-        
-        if head.children_list[0] != cls.default_op():
-            d = D(1.0)
-            wrapped = d.wrap_to(type(head.children_list[1]))
-
-            obj.children_list.append(wrapped)
-            obj.children_list.append(tail)
-
-        else:
-            obj.children_list = tail.children_list[1:]
-        
-        if isinstance(obj, Commutable):
-            obj.tail = prev
-
         return obj
 
     def make_tail(self):
@@ -140,6 +102,7 @@ class Symbol:
 
         return instance
 
+    @abstractmethod
     def tostring(self):
         ret = ''
 
@@ -185,7 +148,7 @@ class Symbol:
         line += str(self.name)
         #line += str(self.vars)
         line += '\n'
-
         print(line)
         for child in self.children_list:
             child.walk(depth + 1)
+

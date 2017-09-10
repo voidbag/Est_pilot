@@ -20,7 +20,6 @@ class Commutable(Symbol):
         instance.name = self.name
         instance.is_terminal = self.is_terminal
         instance.children_list.append(self.children_list[0].copy())
-
         #initiate the term_tail or expr_tail object
         cur = self.children_list[1]
         prev = instance
@@ -39,11 +38,40 @@ class Commutable(Symbol):
             clone.children_list.append(cur.children_list[1].copy())
             prev = clone
             cur = cur.children_list[2] #next pointer...
-      
         
-        instance.tail = clone
+        instance.tail = prev
         return instance
+    
+    @classmethod
+    def make_from_tail(cls, tail):
+        assert tail.is_terminal == False
+        
+        obj = cls()
+        head = prev = cur = tail
 
+        #for get tail
+        while cur.is_terminal == False: 
+            if cur.children_list[2].is_terminal:
+                break
+            prev = cur
+            cur = cur.children_list[2]
+        
+        if head.children_list[0] != obj.default_op():
+            d = D(1.0)
+            wrapped = d.wrap_to(type(head.children_list[1]))
+
+            obj.children_list.append(wrapped)
+            obj.children_list.append(head)
+            obj.tail = prev
+
+        else:
+            obj.children_list = head.children_list[1:]
+            if prev == head:
+                obj.tail = obj
+            else:
+                obj.tail = prev
+
+        return obj
 
 class Terminal(Symbol):
     def __init__(self, name):
@@ -130,6 +158,11 @@ class D(Symbol):
         if (self.contains(var_dict)):
             return '1'
         return '0'
+    
+    def tostring(self):
+        if self.is_int():
+            return str(int(self.get_char()))
+        return str(self.get_char())
 
     def do_copy(self):
         instance = D()
@@ -243,8 +276,8 @@ class Paren(Symbol):
 
         if token == '(':
             expr = Expr()
-            left = Terminal('(', self)
-            right = Terminal(')', self)
+            left = Terminal('(')
+            right = Terminal(')')
             tokens.popleft()
             self.children_list.append(left)
             self.children_list.append(expr)
@@ -394,8 +427,8 @@ class Pow(Symbol):
         if pow_tail.is_terminal:
             return self
 
-        root_exp = exp_pow.get_root()
         exp_pow = pow_tail.canonicalize()
+        root_exp = exp_pow.get_root()
         
         assert exp_pow != None
         #(*,0) (0, *)
@@ -423,7 +456,7 @@ class Pow(Symbol):
         return self
 
     def default_op(self):
-        return '^'
+        return Terminal('^')
 
     def create_tail(self):
         return Pow_tail()
@@ -476,7 +509,7 @@ class Pow_tail(Symbol):
             self.is_terminal = True
             return
 
-        terminal = Terminal(tokens.popleft(), self)
+        terminal = Terminal(tokens.popleft())
         ppow = Pow()
         self.children_list.append(terminal)
         self.children_list.append(ppow)
@@ -580,12 +613,28 @@ class Term(Commutable):
         return term_tail.diff(var_dict, ppow)
     
     def default_op(self):
-        return '*'
+        return Terminal('*')
 
     def create_tail(self):
         return Term_tail()
 
- 
+    def minus(self): 
+        ppow = self.children_list[0]
+        root = ppow.get_root()
+     
+        if root.is_num():
+            root.set_char(-1.0 * root.get_char())
+        else:
+            d = D(-1.0)
+            wrapped = d.wrap_to(Pow)
+            term_tail = self.make_tail()
+            self.children_list[0] = wrapped
+            self.children_list[1] = term_tail
+            if type(self.tail) == Term:
+                self.tail = term_tail
+            else:
+                assert type(self.tail) == Term_tail
+           
     def sort(self):
         ppow = self.children_list[0]
         first = Term_tail()
@@ -655,12 +704,12 @@ class Term(Commutable):
                 cur.children_list[0] = Terminal('/')
             else:
                 assert op == '/'
-                cur.children_list[1] = Terminal('*')
+                cur.children_list[0] = Terminal('*')
             
             prev = cur
             cur = cur.children_list[2] 
-        
-        root = head.get_root()
+        element = head.children_list[1] 
+        root = element.get_root()
         if type(root) == D and root.is_num():
             root.set_char(1.0 / root.get_char())
         else:
@@ -699,14 +748,17 @@ class Term(Commutable):
         offset = 0
         cur = self.make_tail() # Term_tail
         num_key = ''
-
+        print ('start', self.tostring())
+        cnt = 0
         while cur.is_terminal == False:
             op = cur.children_list[0] 
             ppow = cur.children_list[1] 
             ppow = ppow.canonicalize() #must be ppow...
             root = ppow.get_root()
-
-            if type(root) == D and root.is_num():
+            print (cnt, 'self', self.tostring(), 'term canonicalize', root.tostring())
+            print (cur.children_list[2].is_terminal, cur.tostring())
+            cnt += 1
+            if root.is_num():
                 paren = ppow.children_list[0]
                 paren.children_list.clear()
                 paren.children_list.append(root) 
@@ -728,7 +780,6 @@ class Term(Commutable):
                         t_root = t_pow.get_root()
                         assert type(t_root) == D
                         t_root.set_char(t_root.get_char() * num) 
-                        t_paren.children_list.clear()
                 else:
                     root.set_char(num)
                     pow_dict[''] = cur
@@ -743,7 +794,6 @@ class Term(Commutable):
                 next_op = None
                 if len(pow_dict):
                     t1 = Term.make_from_dict(pow_dict) #core method pow_dict == 0??
-
                 if nextofcur.is_terminal == False:
                     assert type(self.tail) != Term
                     t2 = Term()
@@ -782,13 +832,14 @@ class Term(Commutable):
                 
                 self.tail = root.tail
                 cur = root.make_tail()
+                continue
             else:
                 paren = ppow.children_list[0]
                 key = paren.tostring()
                 assert key != num_key
-                
                 if key in pow_dict:
                     term_tail = pow_dict[key]
+                    print('this', cur.tostring())
                     is_merged = term_tail.merge(cur)
                     if is_merged == False:
                         pow_dict.pop(key)
@@ -798,7 +849,8 @@ class Term(Commutable):
 
             cur = cur.children_list[2]
         
-        term = Term.make_from_dict(pow_dict) 
+        term = Term.make_from_dict(pow_dict)
+        print (len(pow_dict), 'from dict', term.tostring())
         ret = term.wrap_to(Expr)
         return ret 
     
@@ -810,7 +862,7 @@ class Term(Commutable):
             ppow = term_tail.children_list[1]
             num_root = ppow.get_root()
             const = num_root.get_char()
-            if const == 1.0:
+            if const == 1.0 and len(factor_dict) > 1:
                 factor_dict.pop('')
             elif const == 0:
                 factor_dict.clear()
@@ -834,7 +886,7 @@ class Term(Commutable):
         for term_tail in term_tail_list:
             assert term_tail.is_terminal == False
             if prev != None:
-                prev.children_list[3] = term_tail #link
+                prev.children_list[2] = term_tail #link
             prev = term_tail
 
         term = Term()
@@ -847,13 +899,12 @@ class Term(Commutable):
  
         root = first.children_list[1]
         root = root.get_root()
-        if first.children_list[0] == '/' and\
-                type(root) == D and root.is_num():
-            root.set_char(1.0 /root.get_char())
+        if first.children_list[0] == '/' and root.is_num():
+            root.set_char(1.0 / root.get_char())
             first.children_list[0] = Terminal('*')
 
         if first.children_list[0] == '/':
-            term
+            d = D(1.0)
             term = d.wrap_to(Term)
             term.children_list[1] = first
             term.tail = last
@@ -882,15 +933,69 @@ class Term(Commutable):
         root_base = self 
         head = prev = cur = root_base.make_tail()
         while cur.is_terminal == False:
-            ppow = cur.children_list[1]    
-            ppow.children_list = ppow.pow(root_exp.copy())
+            ppow = cur.children_list[1]
+            base_paren = ppow.get_root().wrap_to(Paren)
+            exp_paren = root_exp.copy().wrap_to(Paren)
+            ppow = Pow()
+            ppow.children_list.append(base_paren)
+            pow_tail = Pow_tail()
+            terminal = Pow_tail()
+            terminal.is_terminal = True
+            
+            pow_tail.children_list.append(Terminal('^'))
+            pow_tail.children_list.append(exp_paren)
+            pow_tail.children_list.append(terminal)
+            ppow.children_list.append(pow_tail)
+            
+            cur.children_list[1] = ppow
+            prev = cur
             cur = cur.children_list[2]
-        
-        expr = root_base.canonicalize()
-        expr_root = expr.get_root()  
-        ppow = expr_root.wrap_to(Pow)
-        return ppow.children_list 
 
+        self.children_list = head.children_list[1:] 
+        expr = self.canonicalize()
+        expr_root = expr.get_root() 
+        ppow = expr_root.wrap_to(Pow)
+        
+        print (ppow.tostring())
+        return ppow.children_list 
+    
+    def get_coefficient(self):
+        ppow = self.children_list[0]
+        root_ppow = ppow.get_root()
+
+        if root_ppow.is_num():
+            return root_ppow.get_char()
+        else:
+            return 1.0
+
+
+    def set_coefficient(self, num):
+        ppow = self.children_list[0]
+        term_tail = self.children_list[1]
+        root_ppow = ppow.get_root()
+        
+        if root_ppow.is_num():
+            if num == 1.0 and term_tail.is_terminal == False and\
+                    term_tail.children_list[0] == '*':
+                self.children_list = term_tail.children_list[1:]
+                if self.tail == term_tail:
+                    self.tail = self
+            else:
+                root_ppow.set_char(num)
+        else:
+            d = D(num)
+            first = d.wrap_to(Pow)
+            term_tail = Term_tail()
+            terminal = Term_tail()
+            terminal.is_terminal = True
+            
+            term_tail.children_list.append('*')
+            term_tail.children_list.extend(self.children_list)
+        
+            self.children_list[0] = first
+            self.children_list[1] = term_tail
+            if type(self.tail) == Term:
+                self.tail = term_tail
          
 class Term_tail(Symbol):
     def __init__(self):
@@ -908,7 +1013,7 @@ class Term_tail(Symbol):
             self.is_terminal = True
             return self
        
-        terminal = Terminal(tokens.popleft(), self)
+        terminal = Terminal(tokens.popleft())
         ppow = Pow()
         term_tail = Term_tail() #pass this object as parent
         
@@ -1008,10 +1113,14 @@ class Term_tail(Symbol):
         return self.get_id() < other.get_id()
 
     def __eq__(self, other):
+        if other == None:
+            return False
         return self.get_id() == other.get_id()
 
 
-    def merge(self, other):
+    #for each pow
+    def merge(self, term_tail):
+        l_op = self.children_list[0]
         l_ppow = self.children_list[1]
         l_pow_tail = l_ppow.children_list[1] #!0 or !1
         l_exp = None
@@ -1020,9 +1129,10 @@ class Term_tail(Symbol):
             l_exp = d.wrap_to(Pow)
         else:
             l_exp = l_pow_tail.children_list[1]
-
+       
         #redundant codes..
-        r_ppow = other.children_list[1]
+        r_op = term_tail.children_list[0]
+        r_ppow = term_tail.children_list[1]
         r_paren = r_ppow.children_list[0]
         r_pow_tail = r_ppow.children_list[1] 
         r_exp = None
@@ -1030,47 +1140,62 @@ class Term_tail(Symbol):
             d = D(1.0)
             r_exp = d.wrap_to(Pow)
         else:
-            r_exp = l_pow_tail.children_list[1]
-
+            r_exp = r_pow_tail.children_list[1] 
+        d = D(0.0)
+        ret = d.wrap_to(Expr)
         l_expr = l_exp.wrap_to(Expr)
         r_expr = r_exp.wrap_to(Expr) 
-        l_expr.append(r_expr) 
-        l_expr.canonicalize()
-        
-        root_exp = l_expr.get_root()
-        root_base = r_paren.get_root()
+        if l_op == '/':
+            ret.append(l_expr, Terminal('-'))
+        else:
+            ret.append(l_expr)
 
-        if type(root_exp) == D and root_exp.is_num():
-            exp = root_exp.get_char()
-            op = self.children_list[0]
-            other_op = other.children_list[0]
-            if other_op == '/':
-                exp *= -1.0
+        if r_op == '/':
+            ret.append(r_expr, Terminal('-'))
+        else:
+            ret.append(r_expr)
+        
+        ret.canonicalize()
+        print ('ret', ret.tostring(), 'lexpr', l_expr.tostring(), 'r_expr',\
+                r_expr.tostring())
+         
+        root_exp = ret.get_root()
+        root_base = r_paren.get_root()
+        
+        if root_exp.is_num() or type(root_exp) == Term:
+            exp = None
+            if root_exp.is_num():
+                exp = root_exp.get_char()
+            else:
+                exp = root_exp.get_coefficient()
 
             if exp < 0:
                 exp *= -1.0
-                if op == '/':
-                    self.children_list[0] = Terminal('*')
+                if root_exp.is_num():
+                    root_exp.set_char(exp)
                 else:
-                    assert op == '*'
-                    self.children_list[0] = Terminal('/')
+                    root_exp.set_coefficient(exp)
+                self.children_list[0] = Terminal('/')
+             
+            if type(root_exp) == Term:
+                exp = None
+
             if exp == 1.0 or exp == 0.0 or\
-                    (type(root_base) == D and root_base.is_num()):
+                    (root_exp.is_num() and root_base.is_num()):
                 #exceptional case!!  
                 r_pow_tail.is_terminal = True
                 r_pow_tail.children_list.clear()
-                other.children_list[0] = self.children_list[0] #copy op
+                term_tail.children_list[0] = self.children_list[0] #copy op
                 if exp == 0.0:
                     d = D(1.0)
-                    other.children_list[1] = d.wrap_to(Pow)
-                elif (type(root_base) == D and root_base.is_num()):
+                    term_tail.children_list[1] = d.wrap_to(Pow)
+                elif root_base.is_num():
                     base = root_base.get_char()
                     d = D(pow(base, exp))
-                    other.children_list[1] = d.wrap_to(Pow)
+                    term_tail.children_list[1] = d.wrap_to(Pow)
                 return False 
-                #exceptional case!!
-
-        r_pow = root_exp.wrap_to(Pow)
+ 
+        r_pow = root_exp.get_root().wrap_to(Pow)
         pow_tail = Pow_tail()
         pow_tail.children_list.append(Terminal('^'))
         pow_tail.children_list.append(r_pow)
@@ -1117,6 +1242,51 @@ class Expr(Commutable):
         term = self.children_list[0]
         expr_tail = self.children_list[1]
         return expr_tail.diff(var_dict, term)
+    
+    def flip_op(self):
+        if self.is_terminal == True:
+            return
+
+        head = prev = cur = self.make_tail()
+        
+        while cur.is_terminal == False:
+            op = cur.children_list[0]
+            if op == '+':
+                cur.children_list[0] = Terminal('-')
+            else:
+                assert op == '-'
+                cur.children_list[0] = Terminal('+')
+            
+            prev = cur
+            cur = cur.children_list[2] 
+       
+        element = head.children_list[1]
+        root = element.get_root()
+
+        if root.is_num():
+            root.set_char(-1.0 * root.get_char())
+        else:
+            d = D(-1.0)
+            wrapped = d.wrap_to(Term)
+
+            head_term = head.children_list[1]
+            tmp_expr = head_term.wrap_to(Expr)
+            tmp_expr.prepend_term(wrapped)
+            tmp_expr.canonicalize()
+            root_term = tmp_expr.get_root()
+            assert type(root_term) != Expr
+            term = tmp_expr.children_list[0]
+
+            head.children_list[1] = term
+
+            if type(self.tail) == Expr:
+                assert head.children_list[2].is_terminal == True
+                assert prev == head
+            else:
+                assert type(self.tail) == Term_tail
+            
+            self.children_list = head.children_list[1:]
+
 
     #convert_tail, lt, le...j
     #It merges the exprs generated by canonicalization of each term, like
@@ -1127,19 +1297,18 @@ class Expr(Commutable):
 
         expr_list = [] 
         cur = self.make_tail() #conversion for iterating 
-        
         while cur.is_terminal == False: 
             op = cur.children_list[0]
             term = cur.children_list[1]
             expr = term.canonicalize()
-            tail = expr.make_tail()
             if op == '-':
                 expr.flip_op()
+
+            tail = expr.make_tail()
             expr_list.append(tail)
             if cur.children_list[2].is_terminal:
                 break
             cur = cur.children_list[2]
-
 
         min_heap = []
         for i in range(0, len(expr_list)):
@@ -1149,41 +1318,38 @@ class Expr(Commutable):
                 expr_list[i] = expr_tail #update run
                 cur.invalidate = True
                 heappush(min_heap, (cur, i))
-
         cur = None
         head = None
         terminal = Expr_tail()
         terminal.is_terminal = True
-
+        stack = []
         while len(min_heap) > 0:
             entry = heappop(min_heap)
             expr_tail = entry[0]
             topush = entry[1]
-            if cur == None:
+
+            picked_next = expr_tail.children_list[2]
+            if cur == None and expr_tail.get_constant():
                 head = cur = expr_tail
+                stack.append(cur)
                 expr_tail.children_list[2] = terminal
-            else:
+            elif expr_tail.get_constant():
+                expr_tail.invalidate = True
                 if cur.mergeable(expr_tail):
-                    cur.merge(expr_tail)
-                    if cur.is_terminal:
-                        cur = cur.parent #TODO parent check
+                    is_merged = cur.merge(expr_tail)
+                    if is_merged == False:
+                        cur = stack.pop()
                     #TODO check current constant is zero
                 else:
-                    if cur.is_terminal or cur.get_constant() == 0:
-                       cur = cur.parent
-                       if cur == None:
-                           heappush(min_heap, entry)
-                           continue
-
                     assert expr_tail.is_terminal == False
                     cur.children_list[2] = expr_tail
                     expr_tail.children_list[2] = terminal
                     cur = expr_tail
-            print (len(expr_list))
-            picked_next = expr_list[topush].children_list[2]
+                    stack.append(cur)
             #update minheap
             if picked_next.is_terminal == False:
                 expr_list[topush] = picked_next
+                picked_next.invalidate = True
                 heappush(min_heap, (picked_next, topush))
         
         if cur == None:
@@ -1270,13 +1436,13 @@ class Expr(Commutable):
         self.children_list[1] = cur
 
     def default_op(self):
-        return '+'
+        return Terminal('+')
     
     def create_tail(self):
         return Expr_tail()
 
     #Done don't copy
-    def append(self, expr): 
+    def append(self, expr, op = Terminal('+')): 
         if len(self.children_list) == 0:
             self.children_list = expr.children_list
             self.is_terminal = expr.is_terminal
@@ -1288,6 +1454,7 @@ class Expr(Commutable):
             return
 
         expr_tail = expr.make_tail()
+        expr_tail.children_list[0] = op
         idx = -1
         tail = None
         if type(expr.tail) == Expr:
@@ -1306,11 +1473,10 @@ class Expr(Commutable):
         self.tail = tail
 
     #Done
-    def prepend_term(self, term):    
+    def prepend_term(self, term): 
         head = cur = self.make_tail() #expr_tail
         while cur.is_terminal == False:
             cur_term = cur.children_list[1]
-
             left = term.copy()
             right = cur_term.make_tail()
             tail = None
@@ -1319,14 +1485,12 @@ class Expr(Commutable):
             else:
                 assert type(cur_term.tail) == Term_tail
                 tail = cur_term.tail
-
             idx = -1
             if type(left.tail) == Term:
                 idx = 1
             else:
                 assert type(left.tail) == Term_tail
                 idx = 2
-           
             left.tail.children_list[idx] = right
             cur.children_list[1] = left
             left.tail = tail
@@ -1424,7 +1588,7 @@ class Expr(Commutable):
         if num < 0:
             is_inverse = True
             num *= -1
-        
+        num = int(num)  
         ret = root_base.copy()
         for i in range(1, num):
             ret.mul(root_base.copy())
@@ -1461,9 +1625,9 @@ class Expr(Commutable):
         l_terminal = Terminal('(')
         r_terminal = Terminal(')') 
         
-        paren.children_list(l_terminal)
-        paren.children_list(self)
-        paren.children_list(r_terminal) 
+        paren.children_list.append(l_terminal)
+        paren.children_list.append(self)
+        paren.children_list.append(r_terminal) 
        
         return paren
 
@@ -1555,21 +1719,26 @@ class Expr_tail(Symbol):
             self.children_list[0] = Terminal('-')
         
         term = self.children_list[1]
-        ppow = term.children_list[0] 
-        term_tail = term.children_list[1]
+        ppow = term.children_list[0] #num
+        term_tail = term.children_list[1] # 
         root = ppow.get_root()
 
         if const == 0.0:
-            #delete???
-            self.is_terminal = True
+            d = D(0.0)
+            term = d.wrap_to(Term)
             self.children_list.clear()
-            return self
+            self.children_list.append(Terminal('+'))
+            self.children_list.append(term)
+            terminal = Expr_tail()
+            terminal.is_terminal = True
+            self.children_list.append(terminal)
+            return False
 
+        print('term', term.tostring())
         #prune 1...
-        if type(root) == D:
-            op_term_tail = term_tail.children_list[0]
+        if root.is_num():
             if const == 1.0 and term_tail.is_terminal == False and\
-                    op_term_tail == '*':
+                    term_tail.children_list[0] == '*': #why just
                 tail = term.tail
                 term = Term.make_from_tail(term_tail)
                 term_tail = term.children_list[1]
@@ -1579,26 +1748,26 @@ class Expr_tail(Symbol):
 
                 term.tail = tail
                 self.children_list[1] = term
-                return self
+                return True
             else:
-                root.name = const #in-place update
-        else:  
+                root.set_char(const) #in-place update
+        else:
             if const != 1.0:
                 #1 case
                 d = D(const)
-                wrapped = d.wrap_to(Pow)
+                wrapped = d.wrap_to(Term)
+
                 tail = term.tail
                 term_tail = term.make_tail()
-                
                 if type(tail) == Term:
-                    wrapped.tail = term_tail
+                    tail = term_tail
                 else:
                     assert type(tail) == Term_tail
-                    wrapped.tail = tail
+                    tail = term.tail
                 
-                wrapped.children_list[1] = term_tail
- 
-        return self
+                wrapped.children_list[1] = term_tail 
+                self.children_list[1] = wrapped  
+        return True
 
      
     #is used in heap...
@@ -1613,13 +1782,15 @@ class Expr_tail(Symbol):
         ppow = term.children_list[0] 
         term_tail = term.children_list[1]
         root = ppow.get_root()
- 
-        if type(root) == D and root.is_num():
+
+        if term.get_root().is_num():
+            ret = ''
+        elif root.is_num():
             ret = term_tail.tostring()
             if term_tail.is_terminal:
-                assert len(term_tail.children_list)
+                assert len(term_tail.children_list) != 0
         else:
-            ret = term.tostring()
+            ret = '* ' + term.tostring()
 
         self.cache['id'] = ret
 
@@ -1631,13 +1802,12 @@ class Expr_tail(Symbol):
         ppow = term.children_list[0]
         root = ppow.get_root()
       
-        ret = 0
-        if type(root) == D and root.is_num():
+        if root.is_num():
             ret = root.get_char()
         else:
             ret = 1.0
 
-        if self.op == '-':
+        if self.children_list[0] == '-':
             ret *= -1.0
 
         return ret
@@ -1647,6 +1817,8 @@ class Expr_tail(Symbol):
         return self.get_id() < other.get_id()
 
     def __eq__(self, other):
+        if other == None:
+            return False
         return self.get_id() == other.get_id()
         
 
@@ -1654,7 +1826,7 @@ class Expr_tail(Symbol):
 string  = '5 * 5 / 6 ^ 2 / 7'
 string = '3 ^ 2 * 3 / 2 ^ 3'
 #string = 'c / b * a'
-string = 'c + b - a'
+string = '( a ^ x * b ) ^ ( 1 / x )'
 
 #string = '1 - x'
 
@@ -1683,13 +1855,15 @@ copied = root.copy()
 copied.walk(0)
 print('copy: ' + copied.tostring())
 
-string = 'x * x'
+string = '( a + b ) * ( a + b )'
 root = Expr()
 q = deque()
+string = string.split(' ')
 for element in string:
     q.append(element)
 root.parse(q)
+print ('=====input', root.tostring())
 root.canonicalize()
-print(root.walk(0))
+print(root.tostring())
 
 
