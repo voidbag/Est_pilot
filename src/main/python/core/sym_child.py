@@ -336,10 +336,13 @@ class Paren(Symbol):
         if self.fn != None:
             ret += self.fn
         for child in self.children_list:
+            ele = child.tostring()
+            if len(ele) == 0:
+                continue
             if len(ret) == 0:
-                ret += child.tostring()
+                ret += ele
             else:
-                ret += ' ' + child.tostring()
+                ret += ' ' + ele
         return ret
     
     def canonicalize(self, skip = 0):
@@ -567,17 +570,6 @@ class Pow_tail(Symbol):
 
         return ret
 
-    def tostring(self):
-        ret = ''
-
-        for child in self.children_list:
-            if len(ret) == 0:
-                ret += child.tostring()
-            else:
-                ret += ' ' + child.tostring()
-
-        return ret
-
     def canonicalize(self, skip = 0):
         assert self.is_terminal == False
         ppow = self.children_list[1]
@@ -727,7 +719,7 @@ class Term(Commutable):
             self.children_list[1] = head #term_tail
 
     def append(self, term, op = Terminal('*')):
-        assert self.is_terminal or term.is_terminal
+        assert self.is_terminal == False and term.is_terminal == False
         
         term_tail = term.make_tail()
         term_tail.children_list[0] = op
@@ -1821,7 +1813,6 @@ class Expr_tail(Symbol):
         return self.get_id() == other.get_id()
         
 
-'''
 string  = '5 * 5 / 6 ^ 2 / 7'
 string = '3 ^ 2 * 3 / 2 ^ 3'
 #string = 'c / b * a'
@@ -1854,7 +1845,7 @@ copied = root.copy()
 copied.walk(0)
 print('copy: ' + copied.tostring())
 
-string = '( a + b ) * ( a + b )'
+string = '( x * y ) ^ ( y * x )'
 root = Expr()
 q = deque()
 string = string.split(' ')
@@ -1864,4 +1855,3 @@ root.parse(q)
 print ('=====input', root.tostring())
 root.canonicalize()
 print(root.tostring())
-'''

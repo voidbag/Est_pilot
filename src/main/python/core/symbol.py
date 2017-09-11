@@ -108,7 +108,7 @@ class Symbol:
 
         for child in self.children_list:
             ele = child.tostring()
-            if ele == '':
+            if len(ele) == 0:
                 continue
             if len(ret) == 0:
                 ret += ele
