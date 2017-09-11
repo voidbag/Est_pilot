@@ -7,13 +7,28 @@ class Canonicalization(unittest.TestCase):
     def make_parse_tree(self, in_str):
         in_str = in_str.split(' ')
         q = deque()
+        for element in in_str:
+            q.append(element)
+        expr = Expr()
+        expr.parse(q)
+        expr.canonicalize()
+        ret_str = expr.tostring()
+        ret_str = ret_str.split(' ')
 
-    def test_copy(self):
-        self.assertEqual('<term>', '<term>')
+        q = deque()
+        for element in ret_str:
+            q.append(element)
+        ecxpr = Expr()
+        expr.parse(q)
+        return expr
+
     def test_mul(self):
-        self.assertEqual(3,3) 
+        expr = self.make_parse_tree('( a + b ) ^ 2')
+        ret = expr.canonicalize()
+        print (ret)
+        self.assertEqual(ret, '2 * a * b + a ^ 2 + b ^ 2')
     def test_append(self):
-        self.assertEqual(3,3)
+        self.assertEqual(3,4)
     def test_pow(self):
        # expr = Expr()
         self.assertEqual(3, 3)

@@ -8,7 +8,20 @@
 		<script src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>	
 	</head>
 	<body>
-		<h1> Hello World!! </h1>
+		<h1> Calculator </h1>
+		<form action="" method="GET">
+			<input type='text' name='expr' value="Expression"/> <br/>
+			<input type='text' name='vars' value="Dictionary"/> <br/>
+			
+			<input type="radio" name="option" value="canonicalization" checked="checked"/>Canonicalization <br/>
+			<input type="radio" name="option" value="diff"/>Differentiation</br>
+			<input type="radio" name="option" value="compute"/>Compute</br>
+			<input type="radio" name="option" value="definite_integral"/>Definite Integral</br>
+			<input type="radio" name="option" value="directional_derivative"/>Directional Derivative<br/>
+
+			<button type='submit'> Caculate</button>
+		</form>
+		<h1> Result: </h1>
 		<h2> Result $a^x$ </h2>
 	</body>
 
