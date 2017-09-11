@@ -1,5 +1,5 @@
 from collections import deque
-from symbol import Symbol
+from symbol import *
 import math
 import sys
 from heapq import heappush, heappop
@@ -871,7 +871,6 @@ class Term(Commutable):
             d = D(0.0)
             wrapped = d.wrap_to(Term)
             return wrapped
-
 
         values = factor_dict.values()
         term_tail_list = []
@@ -1822,7 +1821,7 @@ class Expr_tail(Symbol):
         return self.get_id() == other.get_id()
         
 
-
+'''
 string  = '5 * 5 / 6 ^ 2 / 7'
 string = '3 ^ 2 * 3 / 2 ^ 3'
 #string = 'c / b * a'
@@ -1865,5 +1864,4 @@ root.parse(q)
 print ('=====input', root.tostring())
 root.canonicalize()
 print(root.tostring())
-
-
+'''

@@ -7,7 +7,7 @@ use_plugin('python.install_dependencies')
 use_plugin('python.flake8')
 use_plugin('python.distutils')
 use_plugin('pypi:pybuilder_django_enhanced_plugin')
-
+use_plugin('exec')
 name = 'Pilot Project'
 default_task = 'publish'
 
