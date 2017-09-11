@@ -16,6 +16,6 @@ def initialize(project):
     project.build_depends_on('mockito')
     project.build_depends_on('django')
     project.set_property('django_project', 'myproject')
-    project.set_property('django_apps', ['myapp', 'myotherapp'])
+    project.set_property('django_apps', ['myapp'])
     project.set_property('django_subpath', 'django_project')
 
