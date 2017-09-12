@@ -551,8 +551,17 @@ class Pow_tail(Symbol):
 
         if base.contains(var_dict):
             if exp.contains(var_dict):
+                f = base.tostring()
+                g = exp.tostring()
+                f_p = base.diff(var_dict)
+                g_p = exp.diff(var_dict)
+                
+                ret = '( '+ f + ' ) ^ ( ' + g + ' ) * ( ( ' + g_p + ' ) * ' +\
+                    'ln ( ' + f  + ' ) + ( ' + g + ' ) * ( ' + f_p + ' ) / ( ' +\
+                    f + ' ) )'
+
                 'error: (x ^ x) isn\'t elementary function '
-                sys.exit(0)
+                #sys.exit(0)
             else: #x^c
                 # c * x ^ ( c -1 ) * x'
                 if self.is_terminal == False:

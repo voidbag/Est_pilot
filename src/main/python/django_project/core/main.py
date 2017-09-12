@@ -22,9 +22,9 @@ class Main:
         ret = {}
         var_dict = {var : True}
         in_str = expr.diff(var_dict)
-        print ('before canonicalization ', in_str)
+#        print ('before canonicalization ', in_str)
         expr = self.make_parse_tree(in_str)
-        print ('diff result ', expr.tostring())
+#        print ('diff result ', expr.tostring())
         ret[var] = expr.tostring()
         return ret
     
@@ -218,3 +218,8 @@ if __name__ == '__main__':
     print(main.canonicalize(in_str))
     in_str = '( a + b + c ) ^ b'
     print(main.canonicalize(in_str))
+    in_str = 'x ^ x'
+    print(main.canonicalize(in_str))
+    in_str = '( x * y ) ^ x'
+    print(main.canonicalize(in_str))
+
