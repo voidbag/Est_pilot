@@ -145,6 +145,10 @@ class Main:
 
     def get_gradient_vector(self, in_str):
         expr = self.make_parse_tree(in_str)
+        if 'e' in expr.vars:
+            expr.vars.pop('e')
+        if 'pi' in expr.vars:
+            expr.vars.pop('pi')
         ret_dict = self.diff_multiple(in_str, expr.vars)
 
         key_list = list(ret_dict.keys())
