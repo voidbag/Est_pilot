@@ -1,0 +1,4 @@
+
+[submodule "src/main/python/django_project/myapp/static/MathJax"]
+	path = src/main/python/django_project/myapp/static/MathJax
+	url = https://github.com/mathjax/MathJax.git
