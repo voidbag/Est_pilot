@@ -116,6 +116,13 @@ class Symbol:
                 ret += ' ' + ele
         return ret
 
+    def do_tostring_latex(self):
+        return self.tostring()
+
+    def tostring_latex(self):
+        return self.do_tostring_latex()
+
+
     def contains(self, var_dict):
         for var in var_dict:
             if var in self.vars:

@@ -353,7 +353,21 @@ class Paren(Symbol):
             else:
                 ret += ' ' + ele
         return ret
-    
+
+    def do_tostring_latex(self):
+        ret = ''
+        if self.fn != None:
+            ret += '\\' + self.fn
+        for child in self.children_list:
+            ele = child.tostring()
+            if len(ele) == 0:
+                continue
+            if len(ret) == 0:
+                ret += ele
+            else:
+                ret += ' ' + ele
+        return ret
+
     def canonicalize(self, skip = 0):
         if len(self.children_list) == 3: #Parentheses contains expr
             expr = self.children_list[1]
@@ -503,7 +517,7 @@ class Pow(Symbol):
         parent.children_list.append(tail)
         parent.tail = parent
         
-        return parent
+        return parent 
 
 class Pow_tail(Symbol):
     def __init__(self):
@@ -592,6 +606,24 @@ class Pow_tail(Symbol):
         assert self.is_terminal == False
         ppow = self.children_list[1]
         return ppow.canonicalize()
+    
+    def do_tostring_latex(self):
+        ret = ''
+        if self.is_terminal:
+            return ret
+
+        for idx in range(0, len(self.children_list)):
+            child = self.children_list[idx]
+            ele = child.tostring()
+            if len(ele) == 0:
+                continue
+            if idx == 1:
+                ele = '{' + ele + '}'
+            if len(ret) == 0:
+                ret += ele
+            else:
+                ret += ' ' + ele
+        return ret
 
 class Term(Commutable):
     def __init__(self):

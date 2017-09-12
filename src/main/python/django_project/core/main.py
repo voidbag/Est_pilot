@@ -1,6 +1,6 @@
 from core.sym_child import *
 import math
-
+import copy
 class Constant:
     step = 0.001
     diff_step = 0.00001
@@ -10,6 +10,8 @@ class Main:
     step = 0.001
     diff_step = 0.00001
     diff_threshold = 0.0001
+    
+
     def diff(self, in_str, var):
         ret = {}
         expr = self.make_parse_tree(in_str)
@@ -32,7 +34,7 @@ class Main:
         ret = {}
         ret['origin'] = in_str
         expr = self.make_parse_tree(in_str)
-        ret['ret'] = expr.tostring()
+        ret['Canonicalized form'] = expr.tostring_latex()
 
         return ret
 
@@ -77,6 +79,64 @@ class Main:
         ret['Computing Result'] = self.do_compute(expr, var_dict)
         return ret
 
+    def do_collect_points(self, expr, var_dict, var_range, keys, depth,\
+            step, ret):
+        if depth == 0:
+            for idx in range(0, len(keys)):
+                ret[idx].append(var_dict[keys[idx]])
+
+            ret[len(keys)].append(expr.compute(var_dict))
+            return
+       
+        key = keys[depth - 1]
+        entry = var_range[key]
+        start = entry[0]
+        end = entry[1]
+        
+        assert start <= end
+
+        cur = start
+        while cur <= end: 
+            var_dict[key] = cur
+            self.do_collect_points(expr, var_dict, var_range, keys,\
+                    depth-1, step, ret)
+            cur += step
+
+    def get_axis(self, expr):
+        var_dict = copy.deepcopy(expr.vars)
+        if 'e' in var_dict:
+            var_dict.pop('e')
+        if 'pi' in expr.vars:
+            var_dict.pop('pi')
+        
+        keys =list(var_dict.keys())
+        keys.sort()
+        return keys
+
+    def get_point_dict(self, in_str, var_range):
+        expr = self.make_parse_tree(in_str)
+        nd = self.get_axis(expr)
+        if len(nd) > 2:
+            raise ValueError('Too many dimensions in given expression')
+        for element in nd:
+            if element in var_range:
+                continue
+            raise ValueError('Unknown Dimension')
+        fns = self.diff_multiple(in_str, nd)
+        ret = {}
+        for key in fns:
+            ret[key] = []
+            expr = self.make_parse_tree(fns[key])
+            for i in range(0, len(var_range) + 1):
+                ret[key].append([])
+            
+            list_of_list = ret[key]
+            keys = list(var_range.keys())
+            keys.sort()
+            self.do_collect_points(expr, {}, var_range, keys, len(keys),\
+                    Constant.step, list_of_list)
+        return ret
+
     #var_range {key: (start, end)}
     def do_definite_integral(self, expr, var_dict, var_range, keys, depth, step):
         if depth == 0:
@@ -109,6 +169,7 @@ class Main:
                         list(var_range.keys()), len(var_range), step)
 
         return ret
+
 
     #vec: dict
     def make_unit_vec(self, vec_dict):

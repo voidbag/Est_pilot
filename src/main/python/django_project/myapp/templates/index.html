@@ -20,12 +20,16 @@
 			<input type="radio" name="option" value="definite_integral"/>Definite Integral</br>
 			<input type="radio" name="option" value="directional_derivative"/>Directional Derivative<br/>
 			<input type="radio" name="option" value="gradient_vector"/>Gradient Vector<br/>
+			<input type="radio" name="option" value="draw_plot"/>Draw Plot<br/>
+			<input type="radio" name="option" value="draw_directional_fn"/>Draw Directional Fn Plot<br/>
 			<button type='submit'> Caculate</button>
 		</form>
 		<h1> Result: </h1>
-		{% for key, value in ret.items %}
+		{% for key, value in ret.ret.items %}
 			<h3>{{key}} : $ {{value}} $ </h3>
 		{% endfor %}
+
+		<img src="data:image/png;base64, {{ret.graphic}}"/>
 		<br/>
 	</body>
 

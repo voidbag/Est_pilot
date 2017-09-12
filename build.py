@@ -15,6 +15,7 @@ default_task = 'publish'
 def initialize(project):
     project.build_depends_on('mockito')
     project.build_depends_on('django')
+    project.build_depends_on('matplotlib')
     project.set_property("dir_source_main_python", r"src/main/python/")
     project.set_property("dir_source_unittest_python", r"src/tests/unittest/python")
     project.set_property("run_unit_tests_propagate_stdout", True)
