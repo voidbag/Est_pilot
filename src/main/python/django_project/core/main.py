@@ -5,7 +5,7 @@ class Constant:
     step = 0.0001
     diff_step = 0.00001
     diff_threshold = 0.0001
-    max_points = 10000
+    max_points = 1000
 
 class Main:
     
@@ -78,7 +78,7 @@ class Main:
         return ret
 
     def do_collect_points(self, expr, var_dict, var_range, keys, depth,\
-            step, ret):
+            step_dict, ret):
         if depth == 0:
             for idx in range(0, len(keys)):
                 ret[idx].append(var_dict[keys[idx]])
@@ -93,11 +93,12 @@ class Main:
         
         assert start <= end
 
+        step = step_dict[key]
         cur = start
         while cur <= end: 
             var_dict[key] = cur
             self.do_collect_points(expr, var_dict, var_range, keys,\
-                    depth-1, step, ret)
+                    depth-1, step_dict, ret)
             cur += step
 
     def get_axis(self, expr):
@@ -110,20 +111,22 @@ class Main:
         keys =list(var_dict.keys())
         keys.sort()
         return keys
+    
     def assign_step(self, var_range):
         step_dict = {}
         total = 0.0
-        max_points = var_range
+        max_points = Constant.max_points
         for var in var_range:
             length = var_range[var][1] - var_range[var][0]
             step_dict[var] =  length
             total += length
 
         for k in step_dict:
-            assigned_points = Constant.max_points * step_dict[k] / total
-            step_dict[k] = assigned_points *
+            assigned_points = max_points * step_dict[k] / total
+            step_dict[k] = step_dict[k] / assigned_points
+            print (step_dict[k])
         
-
+        return step_dict
 
     def get_point_dict(self, in_str, var_range, fn_dict = None):
         expr = self.make_parse_tree(in_str)
@@ -141,6 +144,8 @@ class Main:
             fns = fn_dict
 
         ret = {}
+        step_dict = self.assign_step(var_range)
+        print(step_dict) 
         for key in fns:
             ret[key] = []
             expr = self.make_parse_tree(fns[key])
@@ -150,9 +155,9 @@ class Main:
             list_of_list = ret[key]
             keys = list(var_range.keys())
             keys.sort()
-            
             self.do_collect_points(expr, {}, var_range, keys, len(keys),\
-                    Constant.step, list_of_list)
+                    step_dict, list_of_list)
+        
         return ret
 
     def collect_points_for_directional(self, in_str, var_dict):
