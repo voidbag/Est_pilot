@@ -32,15 +32,12 @@ def draw_plot(point_dict):
         if len(point_dict[k]) == 2:
             proj = '2d'
             cur = fig.add_subplot(pos)
-            cur.set_xlabel('X')
         else:
             if len(point_dict[k]) != 3:
                 raise ValueError('Input demension must be 2 or 3 current: %d' %\
                         len(point_dict[k]))
             proj = '3d'
             cur = fig.add_subplot(pos, projection = proj)
-            cur.set_xlabel('Y')
-            cur.set_xlabel('Y')
 
 
         if len(point_dict[k]) == 2:
@@ -61,17 +58,10 @@ def draw_plot(point_dict):
 def simple():
     fig=Figure()
     ax=fig.add_subplot(111)
-    x=[]
-    y=[]
-    now=datetime.datetime.now()
-    delta=datetime.timedelta(days=1)
-    for i in range(10):
-        x.append(now)
-        now+=delta
-        y.append(random.randint(0, 1000))
-    ax.plot_date(x, y, '-')
-    ax.xaxis.set_major_formatter(DateFormatter('%Y-%m-%d'))
-    fig.autofmt_xdate()
+    x=[1]
+    y=[1]
+    ax.plot(x, y)
+    ax.set_title('Sample')
     canvas=FigureCanvas(fig)
     graphic = io.BytesIO()
     canvas.print_png(graphic)
@@ -141,7 +131,13 @@ def index(request):
                         ret = {'Ret', 'Plots'}
                     except ValueError as e:
                         ret = {'msg': str(e)}
-
+                elif option == 'draw_directional':
+                    try:
+                        point_dict = main.collect_points_for_directional(expr, var_dict)
+                        graphic = draw_plot(point_dict)
+                        ret = {'Ret', 'Directional Derivative Plot'}
+                    except ValueError as e:
+                        ret = {'msg': str(e)}
                 else:
                     ret = {'msg': 'Invalid input'}
 

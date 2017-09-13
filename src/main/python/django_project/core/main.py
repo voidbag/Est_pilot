@@ -2,14 +2,12 @@ from core.sym_child import *
 import math
 import copy
 class Constant:
-    step = 0.001
+    step = 0.0001
     diff_step = 0.00001
     diff_threshold = 0.0001
+    max_points = 10000
 
 class Main:
-    step = 0.001
-    diff_step = 0.00001
-    diff_threshold = 0.0001
     
 
     def diff(self, in_str, var):
@@ -112,8 +110,22 @@ class Main:
         keys =list(var_dict.keys())
         keys.sort()
         return keys
+    def assign_step(self, var_range):
+        step_dict = {}
+        total = 0.0
+        max_points = var_range
+        for var in var_range:
+            length = var_range[var][1] - var_range[var][0]
+            step_dict[var] =  length
+            total += length
 
-    def get_point_dict(self, in_str, var_range):
+        for k in step_dict:
+            assigned_points = Constant.max_points * step_dict[k] / total
+            step_dict[k] = assigned_points *
+        
+
+
+    def get_point_dict(self, in_str, var_range, fn_dict = None):
         expr = self.make_parse_tree(in_str)
         nd = self.get_axis(expr)
         if len(nd) > 2:
@@ -122,7 +134,12 @@ class Main:
             if element in var_range:
                 continue
             raise ValueError('Unknown Dimension')
-        fns = self.diff_multiple(in_str, nd)
+        fns = None
+        if fn_dict == None:
+            fns = self.diff_multiple(in_str, nd)
+        else:
+            fns = fn_dict
+
         ret = {}
         for key in fns:
             ret[key] = []
@@ -133,10 +150,20 @@ class Main:
             list_of_list = ret[key]
             keys = list(var_range.keys())
             keys.sort()
+            
             self.do_collect_points(expr, {}, var_range, keys, len(keys),\
                     Constant.step, list_of_list)
         return ret
 
+    def collect_points_for_directional(self, in_str, var_dict):
+        if 'vector' not in var_dict:
+            raise ValueError('Must receive vector!!')
+        vec = var_dict['vector']
+        var_dict.pop('vector')
+        print (var_dict)
+        fn_dict = self.directional_derivative(in_str, vec)
+        return self.get_point_dict(in_str, var_dict, fn_dict)
+    
     #var_range {key: (start, end)}
     def do_definite_integral(self, expr, var_dict, var_range, keys, depth, step):
         if depth == 0:
