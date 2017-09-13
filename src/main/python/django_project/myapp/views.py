@@ -20,29 +20,38 @@ import base64
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
-def draw_plot(point_dict):
+def draw_plot(point_dict, range_dict):
     #{'name' : [[], []], 'name' : [[],[]]}
-    fig = plt.figure(2)
+    fig = plt.figure(figsize=(len(point_dict) * 5, 5))
 
     keys = list(point_dict.keys())
 
-    pos = 11 + 100 * len(keys)
+    label_list = list(range_dict.keys())
+    label_list.sort()
+
+    pos = 101 + 10 * len(keys)
     for k in keys:
         projection = None
         if len(point_dict[k]) == 2:
             proj = '2d'
             cur = fig.add_subplot(pos)
+            cur.set_xlabel(label_list[0])
+            cur.set_ylabel('Result')
         else:
             if len(point_dict[k]) != 3:
                 raise ValueError('Input demension must be 2 or 3 current: %d' %\
                         len(point_dict[k]))
             proj = '3d'
             cur = fig.add_subplot(pos, projection = proj)
+            cur.set_xlabel(label_list[0])
+            cur.set_ylabel(label_list[1])
+            cur.set_zlabel('Result')
 
 
         if len(point_dict[k]) == 2:
             print(len(point_dict[k][0]))
             cur.plot(point_dict[k][0], point_dict[k][1])
+
         else:
             cur.plot(point_dict[k][0], point_dict[k][1], point_dict[k][2])
         cur.set_title(k)
@@ -127,14 +136,14 @@ def index(request):
                 elif option == 'draw_plot':
                     try:
                         point_dict = main.get_point_dict(expr, var_dict)
-                        graphic = draw_plot(point_dict)
+                        graphic = draw_plot(point_dict, var_dict)
                         ret = {'Ret', 'Plots'}
                     except ValueError as e:
                         ret = {'msg': str(e)}
                 elif option == 'draw_directional':
                     try:
                         point_dict = main.collect_points_for_directional(expr, var_dict)
-                        graphic = draw_plot(point_dict)
+                        graphic = draw_plot(point_dict, var_dict)
                         ret = {'Ret', 'Directional Derivative Plot'}
                     except ValueError as e:
                         ret = {'msg': str(e)}
@@ -148,6 +157,11 @@ def index(request):
             if ret == None:
                 ret = make_err_msg()
         result = {}
+        for k in ret:
+            val = ret[k]
+            val = val.replace('(', '{(')
+            val = val.replace(')', ')}')
+            ret[k] = val
         result['ret'] = ret
         if graphic == None:
             result['graphic'] = simple()

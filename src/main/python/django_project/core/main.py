@@ -3,9 +3,8 @@ import math
 import copy
 class Constant:
     step = 0.0001
-    diff_step = 0.00001
-    diff_threshold = 0.0001
     max_points = 1000
+    integral_step = 0.0001
 
 class Main:
     
